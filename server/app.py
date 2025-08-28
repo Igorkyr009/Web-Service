@@ -129,18 +129,26 @@ async def cmd_setadmin(m: Message):
         await d.commit()
     await m.answer("OK, цей чат призначений як адмінський ✅")
 
-@dp.message(Command("orders")))
+@dp.message(Command("orders"))
 async def cmd_orders(m: Message):
     if (await get_admin_chat_id()) != m.chat.id:
         return await m.answer("Недостатньо прав.")
     async with open_db() as d:
-        cur = await d.execute("SELECT id,total,currency,city,branch,receiver,phone,status FROM orders ORDER BY id DESC LIMIT 20")
+        cur = await d.execute(
+            "SELECT id,total,currency,city,branch,receiver,phone,status "
+            "FROM orders ORDER BY id DESC LIMIT 20"
+        )
         rows = await cur.fetchall()
-    if not rows: return await m.answer("Замовлень ще немає.")
-    text=[]
-    for oid,total,cur,city,branch,recv,phone,st in rows:
-        text.append(f"#{oid} • {total} {cur}\n{city or '-'}, {branch or '-'}\n{recv or '-'} / {phone or '-'}\nСтатус: {st}\n———")
+    if not rows:
+        return await m.answer("Замовлень ще немає.")
+    text = []
+    for oid, total, cur, city, branch, recv, phone, st in rows:
+        text.append(
+            f"#{oid} • {total} {cur}\n{city or '-'}, {branch or '-'}\n"
+            f"{recv or '-'} / {phone or '-'}\nСтатус: {st}\n———"
+        )
     await m.answer("\n".join(text))
+
 
 @dp.message(F.web_app_data)
 async def on_webapp_data(m: Message):
