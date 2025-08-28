@@ -91,6 +91,8 @@ async def init_db():
                 ],
             )
         await d.commit()
+async def root(_):
+    return web.FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 async def get_admin_chat_id() -> Optional[int]:
     async with open_db() as d:
