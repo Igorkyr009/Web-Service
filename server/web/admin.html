@@ -24,6 +24,39 @@
   <input id="image_url" placeholder="/uploads/....webp" readonly>
   <div class="hint">Підтримка: WEBP/JPG/PNG, до 8MB. Рекомендовано ~1200×800.</div>
 </div>
+ <script>
+const fileInput = document.getElementById('file');
+const btnUpload = document.getElementById('btnUpload');
+const imgUrl    = document.getElementById('image_url');
+const preview   = document.getElementById('preview');
+
+btnUpload.addEventListener('click', async () => {
+  const file = fileInput.files[0];
+  if (!file) { alert('Оберіть файл'); return; }
+
+  const fd = new FormData();
+  fd.append('file', file);
+
+  btnUpload.disabled = true;
+  btnUpload.textContent = 'Завантаження...';
+
+  try {
+    const res = await fetch('/api/upload', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Upload error');
+
+    imgUrl.value = data.url;     // сюда кладём ссылку
+    preview.src = data.url;      // показываем превью
+    preview.style.display = '';
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    btnUpload.disabled = false;
+    btnUpload.textContent = 'Завантажити фото';
+  }
+});
+</script>
+
 
   <hr><h3>Створити / оновити товар</h3>
   <label>SKU</label><input id="sku" placeholder="унікальний код (coffee_1kg)">
@@ -187,6 +220,7 @@
 
 
    
+
 
 
 
