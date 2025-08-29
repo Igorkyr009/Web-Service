@@ -11,6 +11,17 @@
   <h2>Адмін-панель</h2>
   <p class="muted">Введи секрет з Render (ENV <b>ADMIN_SECRET</b>). Він збережеться у браузері.</p>
   <label>Admin Secret</label><input id="sec" placeholder="секрет">
+<!-- выбор файла + предпросмотр + скрытое поле image_url -->
+<div class="field">
+  <label>Фото</label>
+  <input id="file" type="file" accept="image/*">
+  <div style="margin-top:8px;display:flex;gap:12px;align-items:center">
+    <button id="btnUpload" type="button">Завантажити фото</button>
+    <img id="preview" style="max-height:80px;border-radius:8px;display:none">
+  </div>
+  <input id="image_url" placeholder="/uploads/....webp" readonly>
+  <div class="hint">Підтримка: WEBP/JPG/PNG, до 8MB. Рекомендовано ~1200×800.</div>
+</div>
 
   <hr><h3>Створити / оновити товар</h3>
   <label>SKU</label><input id="sku" placeholder="унікальний код (coffee_1kg)">
@@ -173,6 +184,7 @@
 
 
    
+
 
 
 
