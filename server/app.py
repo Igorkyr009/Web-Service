@@ -52,6 +52,15 @@ async def delete_product(req):
         await d.execute("DELETE FROM products WHERE sku=?", (sku,))
         await d.commit()
     return web.json_response({"ok": True, "deleted": sku})
+WEBAPP_URL = os.getenv("WEBAPP_URL")
+
+async def setup_menu_button():
+    await bot.set_chat_menu_button(
+        menu_button=MenuButtonWebApp(
+            text="🛍 Вітрина",
+            web_app=WebAppInfo(url=WEBAPP_URL)   # ← каталог
+        )
+    )
 
 # ---------- DB
 CREATE_SQL = """
