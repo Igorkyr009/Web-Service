@@ -53,17 +53,7 @@
   <label><input type="checkbox" id="active" checked> Активний</label>
   <button id="save">Зберегти</button>
 <button id="del" style="margin-left:8px;background:#ef4444">🗑 Видалити</button>
-document.getElementById('del').onclick = async () => {
-  const s = document.getElementById('sku').value.trim();
-  if (!sec.value || !s) { alert('Вкажи SECRET і SKU'); return; }
-  if (!confirm('Видалити товар '+s+' безповоротно?')) return;
-  const r = await fetch('/api/admin/products/delete', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json','X-Admin-Secret': sec.value},
-    body: JSON.stringify({sku:s})
-  });
-  if (!r.ok) alert('Помилка: ' + await r.text()); else alert('🗑 Видалено');
-};
+
 
 <script>
   const sec = document.getElementById('sec');
@@ -152,6 +142,7 @@ document.getElementById('del').onclick = async () => {
 
 
    
+
 
 
 
