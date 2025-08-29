@@ -122,6 +122,37 @@
     if (!sec.value || !payload.sku || !payload.title || !payload.price) {
       alert('Заповни SECRET, SKU, Назву і Ціну'); return;
     }
+<script>
+  const sec = document.getElementById('sec');
+  sec.value = localStorage.getItem('admin_secret') || '';
+  sec.oninput = () => localStorage.setItem('admin_secret', sec.value);
+
+  const $ = id => document.getElementById(id);
+
+  document.getElementById('save').onclick = async () => {
+    // ... как было (создание/обновление)
+  };
+
+  document.getElementById('del').onclick = async () => {
+    console.log('DEL clicked'); // ← проверь в Console, появляется ли строка
+    const s = $('sku').value.trim();
+    if (!sec.value || !s) { alert('Вкажи SECRET і SKU'); return; }
+
+    try {
+      const r = await fetch('/api/admin/products/delete', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','X-Admin-Secret': sec.value},
+        body: JSON.stringify({sku: s})
+      });
+      const txt = await r.text();
+      console.log('DEL resp:', r.status, txt);
+      if (!r.ok) alert('Помилка: ' + txt);
+      else alert('🗑 Видалено: ' + s);
+    } catch (e) {
+      alert('Мережна помилка: ' + e);
+    }
+  };
+</script>
 
     const res = await fetch('/api/admin/products', {
       method: 'POST',
@@ -142,6 +173,7 @@
 
 
    
+
 
 
 
