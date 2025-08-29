@@ -30,6 +30,18 @@ print("DB_PATH =", DB_PATH)
 
 bot = Bot(TELEGRAM_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp  = Dispatcher()
+async def delete_product(req):
+    need_admin(req)
+    data = await req.json()
+    sku = str(data.get("sku","")).strip()
+    if not sku:
+        raise web.HTTPBadRequest(text="missing sku")
+    async with db() as d:
+        await d.execute("DELETE FROM products WHERE sku=?", (sku,))
+        await d.commit()
+    return web.json_response({"ok": True, "deleted": sku})
+web.post("/api/admin/products/delete", delete_product),
+web.options("/api/admin/products/delete", delete_product),
 
 # ---------- DB
 CREATE_SQL = """
