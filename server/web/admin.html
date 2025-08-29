@@ -28,6 +28,46 @@
 <script>
  const sec = document.getElementById('sec');
  sec.value = localStorage.getItem('admin_secret') || '';
- sec.oninput = () =>
+ sec.oninput = () =><script>
+  const sec = document.getElementById('sec');
+  sec.value = localStorage.getItem('admin_secret') || '';
+  sec.oninput = () => localStorage.setItem('admin_secret', sec.value);
+
+  const $ = id => document.getElementById(id);
+
+  document.getElementById('save').onclick = async () => {
+    const payload = {
+      sku: $('sku').value.trim(),
+      title: $('title').value.trim(),
+      price: parseInt($('price').value || '0', 10),
+      currency: $('cur').value.trim() || 'UAH',
+      category: $('cat').value.trim(),
+      image_url: $('img').value.trim(),
+      description: $('desc').value.trim(),
+      is_active: $('active').checked
+    };
+
+    if (!sec.value || !payload.sku || !payload.title || !payload.price) {
+      alert('Заповни SECRET, SKU, Назву і Ціну'); return;
+    }
+
+    const res = await fetch('/api/admin/products', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Secret': sec.value
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      alert('Помилка: ' + (await res.text()));
+    } else {
+      alert('✅ Збережено');
+    }
+  };
+</script>
+
 
    
+
