@@ -16,6 +16,8 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 # server/app.py
 import os, uuid, asyncio
 from aiohttp import web
+WEBAPP_URL = https://web-service-1-4kcb.onrender.com/index.html
+Menu set to: https://web-service-1-4kcb.onrender.com/index.html
 
 # === НАСТРОЙКИ ===
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/data/uploads")  # на Render /data — постоянный диск
@@ -336,6 +338,54 @@ async def main():
     site = web.TCPSite(runner, "0.0.0.0", PORT); await site.start()
     print(f"HTTP on :{PORT}")
     await dp.start_polling(bot)
+# ENV
+WEBAPP_URL = os.getenv("WEBAPP_URL", "").strip()
+WEBAPP_URL_CHECKOUT = os.getenv("WEBAPP_URL_CHECKOUT", (WEBAPP_URL + "#checkout") if WEBAPP_URL else "").strip()
+
+print("WEBAPP_URL        =", WEBAPP_URL or "<empty>")
+print("WEBAPP_URL_CHECKOUT =", WEBAPP_URL_CHECKOUT or "<empty>")
+
+# Меню (кнопка у поля ввода) -> КАТАЛОГ
+async def setup_menu_button():
+    if not WEBAPP_URL:
+        print("setup_menu_button: WEBAPP_URL is empty")
+        return
+    try:
+        await bot.set_chat_menu_button(
+            menu_button=MenuButtonWebApp(
+                text="🛍 Вітрина",
+                web_app=WebAppInfo(url=WEBAPP_URL)
+            )
+        )
+        print("Menu set to:", WEBAPP_URL)
+    except Exception as e:
+        print("Menu set error:", e)
+
+# /start -> инлайн-кнопка на каталог
+@dp.message(Command("start"))
+async def cmd_start(m: Message):
+    if not WEBAPP_URL:
+        return await m.answer("WEBAPP_URL порожній. Додай змінну оточення і перезапусти сервіс.")
+    kb = InlineKeyboardBuilder()
+    kb.button(text="🛍 Відкрити вітрину", web_app=WebAppInfo(url=WEBAPP_URL))
+    kb.adjust(1)
+    await m.answer("Привіт! Обери товари:", reply_markup=kb.as_markup())
+
+# /catalog -> ещё раз шлёт кнопку на каталог (на случай, если /start пропустили)
+@dp.message(Command("catalog"))
+async def cmd_catalog(m: Message):
+    if not WEBAPP_URL:
+        return await m.answer("WEBAPP_URL порожній.")
+    kb = InlineKeyboardBuilder()
+    kb.button(text="🛍 Вітрина", web_app=WebAppInfo(url=WEBAPP_URL))
+    kb.adjust(1)
+    await m.answer("Відкрити каталог:", reply_markup=kb.as_markup())
+
+# /menu -> принудительно обновить нижнюю кнопку-меню
+@dp.message(Command("menu"))
+async def cmd_menu(m: Message):
+    await setup_menu_button()
+    await m.answer("Меню оновлено ✅")
 
 if __name__ == "__main__":
     asyncio.run(main())
