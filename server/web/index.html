@@ -1,6 +1,39 @@
 <!doctype html><html lang="uk"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Магазин</title>
 <style>
+ <script>
+  function renderByHash(){
+    const view = (location.hash || '#catalog').toLowerCase();
+    if (view === '#checkout')  { showCheckout(); }
+    else                       { showCatalog(); }
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    // если раньше сохранял шаг — можно сбросить, чтобы не залипало:
+    try { sessionStorage.removeItem('ui_step'); } catch(e){}
+    renderByHash();
+  });
+
+  window.addEventListener('hashchange', renderByHash);
+</script>
+<script>
+  // кнопка «Оформити»
+  document.getElementById('btn-checkout').addEventListener('click', (e) => {
+    e.preventDefault();
+    // если корзина пустая — подсказка (замени cart на свою переменную):
+    if (!window.cart || !cart.items || !cart.items.length) {
+      alert('Корзина порожня');
+      return;
+    }
+    location.hash = 'checkout';   // переключаемся на страницу оформления
+  });
+
+  // (опционально) кнопка «Кошик» — на каталог:
+  // document.getElementById('btn-cart').addEventListener('click', () => {
+  //   location.hash = 'catalog';
+  // });
+</script>
+
  body{font-family:system-ui,sans-serif;margin:0 auto;max-width:900px;padding:16px}
  header{display:flex;justify-content:space-between;align-items:center}
  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin-top:16px}
@@ -31,6 +64,8 @@
   <div>
     <button id="btnCart">🧺 Корзина (<span id="c">0</span>)</button>
     <button id="btnBuy" class="primary">Оформити</button>
+   <button id="btn-checkout" class="btn">Оформити</button>
+
   </div>
 </header>
 <div id="root" class="grid"></div>
@@ -66,6 +101,7 @@
  load();
 </script>
 </body></html>
+
 
 
 
