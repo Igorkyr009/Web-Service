@@ -42,6 +42,16 @@ async def delete_product(req):
     return web.json_response({"ok": True, "deleted": sku})
 web.post("/api/admin/products/delete", delete_product),
 web.options("/api/admin/products/delete", delete_product),
+async def delete_product(req):
+    need_admin(req)
+    data = await req.json()
+    sku = str(data.get("sku", "")).strip()
+    if not sku:
+        raise web.HTTPBadRequest(text="missing sku")
+    async with db() as d:
+        await d.execute("DELETE FROM products WHERE sku=?", (sku,))
+        await d.commit()
+    return web.json_response({"ok": True, "deleted": sku})
 
 # ---------- DB
 CREATE_SQL = """
@@ -241,6 +251,10 @@ def make_app():
         web.post("/api/admin/products", upsert_product),
         web.options("/api/catalog", catalog),
         web.options("/api/admin/products", upsert_product),
+        web.post("/api/admin/products/delete", delete_product),      # ← есть?
+        web.options("/api/admin/products/delete", delete_product),   # ← есть?
+
+   
         web.get("/", root),
     ])
     app.router.add_static("/", path=str(STATIC_DIR), show_index=False)
