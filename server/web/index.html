@@ -12,6 +12,20 @@
  .muted{color:#666;font-size:12px;min-height:36px}
 </style>
 <body>
+ <script>
+  function wantsCheckout() {
+    const q = new URLSearchParams(location.search);
+    return location.hash === '#checkout' || (q.get('view')||'').toLowerCase()==='checkout';
+  }
+  window.addEventListener('DOMContentLoaded', () => {
+    // если ты сохранял шаг в storage — сбрось, чтобы не залипало на старом экране:
+    try { sessionStorage.removeItem('ui_step'); } catch(e){}
+    if (typeof showCheckout==='function' && typeof showCatalog==='function') {
+      wantsCheckout() ? showCheckout() : showCatalog();
+    }
+  });
+</script>
+
 <header>
   <h2>🛍 Вітрина</h2>
   <div>
@@ -52,5 +66,6 @@
  load();
 </script>
 </body></html>
+
 
 
