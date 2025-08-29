@@ -12,59 +12,7 @@ from aiogram.filters import Command
 from aiogram.types import Message, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 # server/app.py
-import os, uuid, asyncio
-from aiohttp import web
 
-# === НАСТРОЙКИ ===
-UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/data/uploads")  # на Render /data — постоянный диск
-ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp"}
-MAX_FILE = 8 * 1024 * 1024  # 8MB
-
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-# если у тебя уже есть app = web.Application(...), просто задай client_max_size
-app = web.Application(client_max_size=20 * 1024 * 1024)  # до 20MB на запрос
-
-# --- РОУТ ЗАГРУЗКИ ---
-async def upload_image(request: web.Request):
-    reader = await request.multipart()
-    field = await reader.next()
-    if not field or field.name not in ("file", "image"):
-        return web.json_response({"error": "field 'file' is required"}, status=400)
-
-    orig = (field.filename or "").lower()
-    _, ext = os.path.splitext(orig)
-    if ext not in ALLOWED_EXT:
-        return web.json_response({"error": "allow: jpg, jpeg, png, webp"}, status=400)
-
-    name = uuid.uuid4().hex + ext
-    path = os.path.join(UPLOAD_DIR, name)
-
-    size = 0
-    try:
-        with open(path, "wb") as f:
-            while True:
-                chunk = await field.read_chunk(1 << 20)  # 1MB
-                if not chunk:
-                    break
-                size += len(chunk)
-                if size > MAX_FILE:
-                    try: os.remove(path)
-                    except OSError: pass
-                    return web.json_response({"error": "file too big"}, status=413)
-                f.write(chunk)
-    except Exception as e:
-        try: os.remove(path)
-        except OSError: pass
-        return web.json_response({"error": f"save failed: {e}"}, status=500)
-
-    # ссылка, по которой фронт будет видеть файл
-    url = f"/uploads/{name}"
-    return web.json_response({"url": url})
-
-# --- РЕГИСТРАЦИЯ РОУТОВ ---
-app.router.add_post("/api/upload", upload_image)
-app.router.add_static("/uploads/", UPLOAD_DIR, show_index=False)
 
 logging.basicConfig(level=logging.INFO)
 BASE_DIR = Path(__file__).resolve().parent
