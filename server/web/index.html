@@ -48,7 +48,7 @@
     .item:last-child{border-bottom:0}
     .sum{display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-top:6px}
     .field{display:grid;gap:6px}
-    input,textarea{width:100%;padding:10px;border-radius:10px;border:1px solid #1e293b;background:#0b1220;color:var(--text)}
+    input,textarea{width:100%;padding:10px;border-radius:10px;border:1px solid #1e293b;background:#0b1220;color:#e7eef7}
     .bar{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
     .hint{color:#8aa0b8;font-size:13px}
   </style>
@@ -70,7 +70,7 @@
 <script>
   // ---------------- state ----------------
   let CATALOG = null;                 // кэш каталога
-  const CART  = new Map();            // sku -> qty (persisted)
+  const CART  = new Map();            // sku -> qty (persist)
   let SELECTED_CAT = 'Усе';
   const PLACEHOLDER = 'https://via.placeholder.com/600x400.png?text=No+Image';
   const CART_KEY = 'tgshop_cart_v1';
@@ -181,7 +181,7 @@
     app.replaceChildren(wrap);
   }
 
-  // Каталог (с фильтром по SELECTED_CAT)
+  // Каталог
   async function showCatalog(){
     $('header h2').textContent = '🛍 Вітрина';
     await ensureCatalog();
@@ -205,12 +205,10 @@
           <button class="primary" type="button">Додати</button>
         </div>
       `;
-      // клик по карточке — страница товара
       card.addEventListener('click', (e) => {
         if (e.target.tagName === 'BUTTON') return;
         location.hash = '#product/' + encodeURIComponent(p.sku);
       });
-      // кнопка "Додати"
       card.querySelector('button').onclick = (e) => {
         e.stopPropagation();
         addToCart(p.sku, 1);
@@ -300,23 +298,19 @@
 
   // ---------------- router ----------------
   function route(){
-    const h = (location.hash || '#home').slice(1); // без '#'
+    const h = (location.hash || '#home').slice(1);
     const [path, arg] = h.split('/');
 
-    // показываем/скрываем чипы категорий
     chipsEl.style.display = (path==='catalog') ? '' : 'none';
 
-    if (path==='home')        return showHome();
-    if (path==='catalog')     return showCatalog();
-    if (path==='category')    { SELECTED_CAT = decodeURIComponent(arg||'Усе'); return showCatalog(); }
-    if (path==='product')     return showProduct(decodeURIComponent(arg||''));
-    if (path==='checkout')    return showCheckout();
+    if (path==='home')     return showHome();
+    if (path==='catalog')  return showCatalog();
+    if (path==='product')  return showProduct(decodeURIComponent(arg||''));
+    if (path==='checkout') return showCheckout();
 
-    // unknown -> home
     location.hash = '#home';
   }
 
-  // init
   loadCart(); renderCartCount();
   document.addEventListener('DOMContentLoaded', route);
   window.addEventListener('hashchange', route);
@@ -333,6 +327,7 @@
 </script>
 </body>
 </html>
+
 
 
 
