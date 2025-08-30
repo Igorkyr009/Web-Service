@@ -15,6 +15,25 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 logging.basicConfig(level=logging.INFO)
 BASE_DIR   = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "web"
+WEBAPP_URL = os.getenv("WEBAPP_URL", "").strip()             # каталог
+WEBAPP_URL_HOME = os.getenv("WEBAPP_URL_HOME", WEBAPP_URL).strip()  # домашній екран з 3 кнопками
+
+async def setup_menu_button():
+    # нижняя кнопка у поля ввода -> КАТАЛОГ
+    await bot.set_chat_menu_button(
+        menu_button=MenuButtonWebApp(
+            text="🛍 Вітрина",
+            web_app=WebAppInfo(url=WEBAPP_URL)  # ...#catalog
+        )
+    )
+
+@dp.message(Command("start"))
+async def start(m: Message):
+    # кнопка в сообщении -> Домашній екран (3 кнопки)
+    kb = InlineKeyboardBuilder()
+    kb.button(text="🛍 Відкрити вітрину", web_app=WebAppInfo(url=WEBAPP_URL_HOME))
+    kb.adjust(1)
+    await m.answer("Привіт! Обери категорію:", reply_markup=kb.as_markup())
 
 # ---------- ENV ----------
 load_dotenv()
