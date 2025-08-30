@@ -22,26 +22,19 @@
   <h3>Створити / оновити товар</h3>
 
   <label>SKU</label>
-  <input id="sku" placeholder="унікальний код (coffee_1kg)">
+  <input id="sku" placeholder="унікальний код (devices_001)">
 
   <label>Назва</label>
   <input id="title" placeholder="Назва товару">
 
   <div class="row">
-    <div>
-      <label>Ціна</label>
-      <input id="price" type="number" placeholder="1299">
-    </div>
-    <div>
-      <label>Валюта</label>
-      <input id="cur" value="UAH">
-    </div>
+    <div><label>Ціна</label><input id="price" type="number" placeholder="1299"></div>
+    <div><label>Валюта</label><input id="cur" value="UAH"></div>
   </div>
 
   <label>Категорія</label>
-  <input id="cat" placeholder="Кофе / Мерч / ...">
+  <input id="cat" placeholder="Девайси / Рідини / Картриджі">
 
-  <!-- Блок загрузки фото -->
   <label>Фото</label>
   <input id="file" type="file" accept="image/*">
   <div style="display:flex;gap:12px;align-items:center;margin:6px 0 12px">
@@ -59,45 +52,29 @@
   </div>
 
 <script>
-  // секрет
-  const sec = document.getElementById('sec');
+  const $ = id => document.getElementById(id);
+  const sec = $('sec');
   sec.value = localStorage.getItem('admin_secret') || '';
   sec.oninput = () => localStorage.setItem('admin_secret', sec.value);
 
-  const $ = id => document.getElementById(id);
-
-  // загрузка фото
-  const fileInput = $('file');
-  const btnUpload = $('btnUpload');
-  const imgUrl    = $('image_url');
-  const preview   = $('preview');
-
-  btnUpload.addEventListener('click', async () => {
-    const file = fileInput.files[0];
+  // upload
+  $('btnUpload').addEventListener('click', async () => {
+    const file = $('file').files[0];
     if (!file) { alert('Оберіть файл'); return; }
-
-    btnUpload.disabled = true;
-    btnUpload.textContent = 'Завантаження...';
-
+    const btn = $('btnUpload');
+    btn.disabled = true; btn.textContent = 'Завантаження...';
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const fd = new FormData(); fd.append('file', file);
+      const res = await fetch('/api/upload', { method:'POST', body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Upload error');
-
-      imgUrl.value = data.url;     // /uploads/xxxx.webp
-      preview.src = data.url;
-      preview.style.display = '';
-    } catch (e) {
-      alert(e.message);
-    } finally {
-      btnUpload.disabled = false;
-      btnUpload.textContent = 'Завантажити фото';
-    }
+      $('image_url').value = data.url;
+      $('preview').src = data.url; $('preview').style.display = '';
+    } catch (e) { alert(e.message); }
+    finally { btn.disabled = false; btn.textContent = 'Завантажити фото'; }
   });
 
-  // сохранение товара (UPSERT)
+  // save
   $('save').onclick = async () => {
     const payload = {
       sku: $('sku').value.trim(),
@@ -109,30 +86,28 @@
       description: $('desc').value.trim(),
       is_active: $('active').checked
     };
-
     if (!sec.value || !payload.sku || !payload.title || !payload.price) {
       alert('Заповни SECRET, SKU, Назву і Ціну'); return;
     }
-
     try {
       const res = await fetch('/api/admin/products', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json','X-Admin-Secret': sec.value},
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-Admin-Secret': sec.value},
         body: JSON.stringify(payload)
       });
       const txt = await res.text();
       if (!res.ok) throw new Error(txt);
       alert('✅ Збережено');
-    } catch (e) {
-      alert('Помилка: ' + e.message);
-    }
+    } catch (e) { alert('Помилка: ' + e.message); }
   };
 </script>
 </body>
 </html>
 
 
+
    
+
 
 
 
