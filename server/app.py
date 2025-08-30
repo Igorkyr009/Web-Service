@@ -19,30 +19,57 @@ STATIC_DIR = BASE_DIR / "web"
 
 # ---------- ENV ----------
 load_dotenv()
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "").strip()
-ADMIN_SECRET   = os.getenv("ADMIN_SECRET", "").strip()
-DB_PATH        = os.getenv("DB_PATH", "/data/shop.db").strip()
-PORT           = int(os.getenv("PORT", "8000"))
-WEBAPP_URL     = os.getenv("WEBAPP_URL", "").strip()            # каталог (рекомендуется .../index.html#catalog)
-WEBAPP_URL_HOME= os.getenv("WEBAPP_URL_HOME", WEBAPP_URL).strip()  # домашний экран (...#home)
-UPLOAD_DIR     = os.getenv("UPLOAD_DIR", "/data/uploads").strip()
+TELEGRAM_TOKEN   = os.getenv("TELEGRAM_TOKEN", "").strip()
+ADMIN_SECRET     = os.getenv("ADMIN_SECRET", "").strip()
+DB_PATH          = os.getenv("DB_PATH", "/data/shop.db").strip()
+PORT             = int(os.getenv("PORT", "8000"))
+WEBAPP_URL       = os.getenv("WEBAPP_URL", "").strip()             # ...index.html#catalog
+WEBAPP_URL_HOME  = os.getenv("WEBAPP_URL_HOME", WEBAPP_URL).strip()# ...index.html#home
+UPLOAD_DIR       = os.getenv("UPLOAD_DIR", "/data/uploads").strip()
+# второй бот для уведомлений
+ADMIN_BOT_TOKEN  = os.getenv("ADMIN_BOT_TOKEN", "").strip()
 
 if not TELEGRAM_TOKEN:
     raise SystemExit("TELEGRAM_TOKEN пуст")
 
-Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
-Path(UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
+# безопасная подготовка путей (fallback в /tmp если нет прав)
+def _safe_prepare(db_path: str, upload_dir: str):
+    try:
+        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        print(f"⚠️ No permission for {db_path}. Fallback to /tmp/shop.db")
+        db_path = "/tmp/shop.db"
+        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+    try:
+        Path(upload_dir).mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        print(f"⚠️ No permission for {upload_dir}. Fallback to /tmp/uploads")
+        upload_dir = "/tmp/uploads"
+        Path(upload_dir).mkdir(parents=True, exist_ok=True)
+    return db_path, upload_dir
 
-print("DB_PATH    =", DB_PATH)
-print("UPLOAD_DIR =", UPLOAD_DIR)
-print("WEBAPP_URL =", WEBAPP_URL or "<empty>")
+DB_PATH, UPLOAD_DIR = _safe_prepare(DB_PATH, UPLOAD_DIR)
+
+print("DB_PATH         =", DB_PATH)
+print("UPLOAD_DIR      =", UPLOAD_DIR)
+print("WEBAPP_URL      =", WEBAPP_URL or "<empty>")
 print("WEBAPP_URL_HOME =", WEBAPP_URL_HOME or "<empty>")
 
-# ---------- Aiogram (Router!) ----------
+# ---------- Aiogram (Router) ----------
 bot = Bot(TELEGRAM_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp  = Dispatcher()
 rt  = Router()
 dp.include_router(rt)
+
+# опционально второй бот для уведомлений
+admin_bot: Optional[Bot] = None
+if ADMIN_BOT_TOKEN:
+    try:
+        admin_bot = Bot(ADMIN_BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+        print("Admin bot enabled")
+    except Exception as e:
+        print("Admin bot init error:", e)
+        admin_bot = None
 
 # ---------- DB ----------
 CREATE_SQL = """
@@ -70,6 +97,7 @@ CREATE TABLE IF NOT EXISTS orders(
   branch TEXT,
   receiver TEXT,
   phone TEXT,
+  buyer_username TEXT,  -- новый столбец (введённый пользователем @username)
   status TEXT DEFAULT 'new',
   np_ttn TEXT,
   created_at INTEGER NOT NULL
@@ -92,6 +120,15 @@ def db():
 async def init_db():
     async with db() as d:
         await d.executescript(CREATE_SQL)
+        # миграции на случай старых таблиц
+        try:
+            await d.execute("ALTER TABLE orders ADD COLUMN buyer_username TEXT")
+        except Exception:
+            pass
+        try:
+            await d.execute("ALTER TABLE products ADD COLUMN availability TEXT NOT NULL DEFAULT 'in_stock'")
+        except Exception:
+            pass
         await d.commit()
 
 async def admin_chat_id() -> Optional[int]:
@@ -102,9 +139,16 @@ async def admin_chat_id() -> Optional[int]:
 
 async def notify_admin(text: str):
     chat = await admin_chat_id()
-    if chat:
-        try: await bot.send_message(chat, text)
-        except Exception as e: print("notify_admin:", e)
+    if not chat:
+        return
+    # если задан второй бот — шлём им; иначе основным
+    try:
+        if admin_bot:
+            await admin_bot.send_message(chat, text)
+        else:
+            await bot.send_message(chat, text)
+    except Exception as e:
+        print("notify_admin:", e)
 
 # ---------- BOT ----------
 async def setup_menu_button():
@@ -115,7 +159,7 @@ async def setup_menu_button():
         await bot.set_chat_menu_button(
             menu_button=MenuButtonWebApp(
                 text="🛍 Вітрина",
-                web_app=WebAppInfo(url=WEBAPP_URL)  # ← нижняя кнопка у поля ввода -> КАТАЛОГ
+                web_app=WebAppInfo(url=WEBAPP_URL)   # нижняя кнопка -> каталог
             )
         )
         print("Menu set to:", WEBAPP_URL)
@@ -125,9 +169,9 @@ async def setup_menu_button():
 @rt.message(Command("start"))
 async def start(m: Message):
     if not WEBAPP_URL_HOME:
-        return await m.answer("WEBAPP_URL_HOME порожній. Додай змінну оточення і перезапусти сервіс.")
+        return await m.answer("WEBAPP_URL_HOME порожній.")
     kb = InlineKeyboardBuilder()
-    kb.button(text="🛍 Відкрити вітрину", web_app=WebAppInfo(url=WEBAPP_URL_HOME))  # ← HOME (3 кнопки)
+    kb.button(text="🛍 Відкрити вітрину", web_app=WebAppInfo(url=WEBAPP_URL_HOME))
     kb.adjust(1)
     await m.answer("Привіт! Обери категорію:", reply_markup=kb.as_markup())
 
@@ -140,7 +184,7 @@ async def setadmin(m: Message):
             (str(m.chat.id),)
         )
         await d.commit()
-    await m.answer("Цей чат призначено адмінським ✅")
+    await m.answer("Цей чат призначено адмінським ✅\n(Не забудь натиснути /start у другому боті, якщо він увімкнений).")
 
 @rt.message(Command("orders"))
 async def orders(m: Message):
@@ -148,14 +192,20 @@ async def orders(m: Message):
         return await m.answer("Недостатньо прав.")
     async with db() as d:
         c = await d.execute(
-            "SELECT id,total,currency,city,branch,receiver,phone,status FROM orders ORDER BY id DESC LIMIT 20"
+            "SELECT id,total,currency,city,branch,receiver,phone,buyer_username,status "
+            "FROM orders ORDER BY id DESC LIMIT 20"
         )
         rows = await c.fetchall()
     if not rows:
         return await m.answer("Замовлень ще немає.")
     out=[]
-    for oid,total,cur,city,branch,recv,phone,st in rows:
-        out.append(f"#{oid} • {total} {cur}\n{city or '-'}, {branch or '-'}\n{recv or '-'} / {phone or '-'}\nСтатус: {st}\n———")
+    for oid,total,cur,city,branch,recv,phone,uname,st in rows:
+        out.append(
+            f"#{oid} • {total} {cur}\n"
+            f"{city or '-'}, {branch or '-'}\n"
+            f"{recv or '-'} / {phone or '-'} / {uname or '—'}\n"
+            f"Статус: {st}\n———"
+        )
     await m.answer("\n".join(out))
 
 @rt.message(F.web_app_data)
@@ -167,12 +217,15 @@ async def on_webapp(m: Message):
     if data.get("type") != "checkout":
         return await m.answer("Unknown type.")
 
-    # собрать позиции по актуальному каталогу
+    # собираем позиции по каталогу
     items=[]; total=0; currency="UAH"
     async with db() as d:
         for it in data.get("items", []):
             sku=str(it.get("sku")); qty=int(it.get("qty",1))
-            c=await d.execute("SELECT title,price,currency FROM products WHERE sku=? AND is_active=1", (sku,))
+            c=await d.execute(
+                "SELECT title,price,currency FROM products WHERE sku=? AND is_active=1",
+                (sku,)
+            )
             r=await c.fetchone()
             if not r or qty<=0: continue
             title, price, cur = r
@@ -182,19 +235,20 @@ async def on_webapp(m: Message):
     if not items:
         return await m.answer("Порожня корзина.")
 
-    city=(data.get("city") or "")
-    branch=(data.get("branch") or "")
-    receiver=(data.get("receiver") or "")
-    phone=(data.get("phone") or "")
+    city=(data.get("city") or "").strip()
+    branch=(data.get("branch") or "").strip()
+    receiver=(data.get("receiver") or "").strip()
+    phone=(data.get("phone") or "").strip()
+    buyer_username=(data.get("username") or "").strip()  # НОВОЕ поле из фронта
 
     async with db() as d:
         c = await d.execute(
-            "INSERT INTO orders(tg_user_id,tg_username,tg_name,total,currency,city,branch,receiver,phone,status,created_at) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO orders(tg_user_id,tg_username,tg_name,total,currency,city,branch,receiver,phone,buyer_username,status,created_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
             (m.from_user.id,
              f"@{m.from_user.username}" if m.from_user.username else None,
              f"{m.from_user.first_name or ''} {m.from_user.last_name or ''}".strip(),
-             total, currency, city, branch, receiver, phone, "new", int(time.time()))
+             total, currency, city, branch, receiver, phone, buyer_username, "new", int(time.time()))
         )
         await d.commit()
         order_id = c.lastrowid
@@ -205,10 +259,22 @@ async def on_webapp(m: Message):
             )
         await d.commit()
 
-    await m.answer(f"✅ Замовлення #{order_id} створено!")
-    await notify_admin(
-        f"🆕 Замовлення #{order_id}\nРазом: {total} {currency}\n{city} • {branch}\n{receiver} / {phone}"
+    # покупателю
+    await m.answer(f"✅ Замовлення #{order_id} створено! Ми зв'яжемося з вами найближчим часом.")
+
+    # админу — детальная сводка
+    items_txt = "\n".join([f"• {t} × {q} = {p*q} {currency}" for _, t, p, q in items])
+    admin_msg = (
+        f"🆕 Замовлення #{order_id}\n"
+        f"{items_txt}\n"
+        f"Разом: {total} {currency}\n"
+        f"Доставка: {city} • {branch}\n"
+        f"Отримувач: {receiver}\n"
+        f"Телефон: {phone}\n"
+        f"Юзернейм (з форми): {buyer_username or '—'}\n"
+        f"ТГ профіль: {('@'+m.from_user.username) if m.from_user.username else '—'} (id {m.from_user.id})"
     )
+    await notify_admin(admin_msg)
 
 # ---------- HTTP ----------
 @web.middleware
@@ -229,14 +295,15 @@ async def health(_): return web.json_response({"ok": True})
 async def catalog(_):
     async with db() as d:
         c = await d.execute(
-            "SELECT sku,title,price,currency,COALESCE(image_url,''),COALESCE(description,''),COALESCE(category,''),is_active "
+            "SELECT sku,title,price,currency,COALESCE(image_url,''),COALESCE(description,''),"
+            "COALESCE(category,''),COALESCE(availability,'in_stock'),is_active "
             "FROM products ORDER BY is_active DESC, title"
         )
         rows = await c.fetchall()
     items = [{
         "sku": r[0], "title": r[1], "price": r[2], "currency": r[3],
         "image_url": r[4], "description": r[5], "category": r[6],
-        "is_active": bool(r[7])
+        "availability": r[7], "is_active": bool(r[8])
     } for r in rows]
     return web.json_response({"items": items})
 
@@ -250,6 +317,7 @@ async def upsert_product(req):
     for k in ("sku","title","price"):
         if not data.get(k):
             raise web.HTTPBadRequest(text=f"missing {k}")
+
     sku = str(data["sku"]).strip()
     title = str(data["title"]).strip()
     price = int(data["price"])
@@ -258,16 +326,20 @@ async def upsert_product(req):
     description=(data.get("description") or "").strip()
     category=(data.get("category") or "").strip()
     is_active = 1 if data.get("is_active", True) else 0
+    availability=(data.get("availability") or "in_stock").strip()
+    if availability not in ("in_stock","preorder"):
+        return web.json_response({"error":"availability must be in_stock or preorder"}, status=400)
 
     async with db() as d:
         await d.execute(
-            """INSERT INTO products(sku,title,price,currency,image_url,description,category,is_active)
-               VALUES (?,?,?,?,?,?,?,?)
+            """INSERT INTO products(sku,title,price,currency,image_url,description,category,is_active,availability)
+               VALUES (?,?,?,?,?,?,?,?,?)
                ON CONFLICT(sku) DO UPDATE SET
                  title=excluded.title, price=excluded.price, currency=excluded.currency,
                  image_url=excluded.image_url, description=excluded.description,
-                 category=excluded.category, is_active=excluded.is_active""",
-            (sku,title,price,currency,image_url,description,category,is_active)
+                 category=excluded.category, is_active=excluded.is_active,
+                 availability=excluded.availability""",
+            (sku,title,price,currency,image_url,description,category,is_active,availability)
         )
         await d.commit()
     return web.json_response({"ok": True, "sku": sku})
