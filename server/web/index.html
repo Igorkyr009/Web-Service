@@ -27,6 +27,20 @@
     .row{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
     .price{font-weight:700}
 
+    /* home */
+    .home{display:grid;gap:16px}
+    .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+    .tile{background:linear-gradient(180deg,#0f1720,#0d1420);border:1px solid var(--line);border-radius:14px;padding:24px;cursor:pointer;text-align:center}
+    .tile:hover{transform:translateY(-2px)}
+    .tile h3{margin:0 0 8px}
+    .tile p{margin:0;color:var(--muted);font-size:13px}
+
+    /* product page */
+    .product{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .product img{width:100%;border-radius:12px;aspect-ratio:3/2;object-fit:cover;background:#0b1220}
+    .back{background:transparent;border:1px solid var(--line);border-radius:8px;padding:6px 10px;color:var(--text);margin-bottom:12px}
+    @media (max-width:720px){ .product{grid-template-columns:1fr} }
+
     /* checkout */
     .checkout{display:grid;gap:12px}
     .items{border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:12px}
@@ -37,16 +51,6 @@
     input,textarea{width:100%;padding:10px;border-radius:10px;border:1px solid #1e293b;background:#0b1220;color:var(--text)}
     .bar{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
     .hint{color:#8aa0b8;font-size:13px}
-
-    /* modal */
-    .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:20px;z-index:10}
-    .modal.on{display:flex}
-    .modal-card{max-width:740px;width:100%;background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden}
-    .modal-body{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px}
-    .modal-body img{width:100%;border-radius:12px;aspect-ratio:3/2;object-fit:cover}
-    .modal-head{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}
-    .close{background:transparent;border:1px solid var(--line);border-radius:8px;padding:6px 10px;color:var(--text)}
-    @media (max-width:720px){ .modal-body{grid-template-columns:1fr} }
   </style>
 </head>
 <body>
@@ -54,50 +58,26 @@
   <header>
     <h2>🛍 Вітрина</h2>
     <div class="actions">
-      <button id="btn-catalog" type="button">Каталог</button>
-      <button id="btn-cart"    type="button">🧺 Кошик (<span id="cart-count">0</span>)</button>
+      <button id="btn-catalog"  type="button">Каталог</button>
+      <button id="btn-cart"     type="button">🧺 Кошик (<span id="cart-count">0</span>)</button>
       <button id="btn-checkout" type="button" class="primary">Оформити</button>
     </div>
   </header>
 
-  <!-- категориям место -->
   <div id="chips" class="chips" style="display:none"></div>
-
   <main id="app"></main>
 
-  <!-- модалка товара -->
-  <div id="modal" class="modal" role="dialog" aria-modal="true">
-    <div class="modal-card" role="document">
-      <div class="modal-head">
-        <strong id="m-title"></strong>
-        <button class="close" id="m-close" type="button">✕</button>
-      </div>
-      <div class="modal-body">
-        <img id="m-img" alt="">
-        <div>
-          <div class="muted" id="m-cat"></div>
-          <p id="m-desc" style="margin:8px 0 12px"></p>
-          <div class="row" style="margin-top:12px">
-            <div class="price" id="m-price"></div>
-            <button class="primary" id="m-add" type="button">Додати в кошик</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
 <script>
-  // ------- состояние -------
-  let CATALOG = null;                 // кэш каталога (массив)
-  const CART = new Map();             // sku -> qty
-  let SELECTED_CAT = 'Усе';           // активная категория
+  // ---------------- state ----------------
+  let CATALOG = null;                 // кэш каталога
+  const CART  = new Map();            // sku -> qty (persisted)
+  let SELECTED_CAT = 'Усе';
   const PLACEHOLDER = 'https://via.placeholder.com/600x400.png?text=No+Image';
+  const CART_KEY = 'tgshop_cart_v1';
 
-  // ------- утилиты -------
+  // ---------------- utils ----------------
   const $ = sel => document.querySelector(sel);
-  const app = $('#app');
-  const chipsEl = $('#chips');
-  const cartCountEl = $('#cart-count');
+  const app = $('#app'), chipsEl = $('#chips'), cartCountEl = $('#cart-count');
   const fmt = n => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
   const currency = (p,c) => `${fmt(p)} ${c||'UAH'}`;
 
@@ -109,9 +89,26 @@
     return u;
   }
 
+  // ----- cart persist -----
+  function loadCart(){
+    try{
+      const raw = localStorage.getItem(CART_KEY);
+      if(!raw) return;
+      const obj = JSON.parse(raw);
+      Object.entries(obj).forEach(([sku,qty])=>{ if(qty>0) CART.set(sku,qty); });
+    }catch(e){}
+  }
+  function saveCart(){
+    const obj = {}; for (const [sku,qty] of CART.entries()) obj[sku]=qty;
+    try{ localStorage.setItem(CART_KEY, JSON.stringify(obj)); }catch(e){}
+  }
   function renderCartCount(){
     let n=0; for(const q of CART.values()) n+=q;
     cartCountEl.textContent = n;
+  }
+  function addToCart(sku, qty=1){
+    CART.set(sku, (CART.get(sku)||0) + qty);
+    renderCartCount(); saveCart();
   }
 
   function cartTotal() {
@@ -124,7 +121,7 @@
     return {total,curr};
   }
 
-  // ------- категории -------
+  // ---------------- categories ----------------
   function categoriesFrom(items){
     const set = new Set(['Усе']);
     items.forEach(p => { const c=(p.category||'').trim(); if(c) set.add(c); });
@@ -137,40 +134,57 @@
       const b = document.createElement('button');
       b.className = 'chip' + (cat===SELECTED_CAT?' active':'');
       b.textContent = cat;
-      b.onclick = () => { SELECTED_CAT = cat; showCatalog(true); };
+      b.onclick = () => { SELECTED_CAT = cat; location.hash = '#catalog'; };
       chipsEl.appendChild(b);
     });
     chipsEl.style.display = cats.length>1 ? '' : 'none';
   }
 
-  // ------- модалка товара -------
-  const modal = $('#modal'), mImg = $('#m-img'), mTitle = $('#m-title'),
-        mDesc = $('#m-desc'), mPrice = $('#m-price'), mCat = $('#m-cat'), mAdd = $('#m-add');
-
-  function openProduct(p){
-    mImg.src = normalizeImg(p.image_url);
-    mImg.onerror = () => { mImg.onerror=null; mImg.src=PLACEHOLDER; };
-    mTitle.textContent = p.title;
-    mDesc.textContent  = p.description || '—';
-    mCat.textContent   = p.category ? `Категорія: ${p.category}` : '';
-    mPrice.textContent = currency(p.price, p.currency);
-    mAdd.onclick = () => { CART.set(p.sku, (CART.get(p.sku)||0)+1); renderCartCount(); closeModal(); };
-    modal.classList.add('on');
+  // ---------------- views ----------------
+  async function ensureCatalog(){
+    if (CATALOG) return;
+    const r = await fetch('/api/catalog', {cache:'no-store'});
+    const data = await r.json();
+    CATALOG = (data.items||[]).filter(x=>x.is_active);
+    renderChips(CATALOG);
   }
-  function closeModal(){ modal.classList.remove('on'); }
-  $('#m-close').onclick = closeModal;
-  modal.addEventListener('click', (e)=>{ if(e.target===modal) closeModal(); });
-  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeModal(); });
 
-  // ------- каталог -------
-  async function showCatalog(skipFetch=false) {
+  // Home: три большие кнопки
+  async function showHome(){
     $('header h2').textContent = '🛍 Вітрина';
-    if (!skipFetch || !CATALOG){
-      const r = await fetch('/api/catalog', {cache:'no-store'});
-      const data = await r.json();
-      CATALOG = (data.items||[]).filter(x=>x.is_active);
-      renderChips(CATALOG);
-    }
+    await ensureCatalog();
+
+    const wrap = document.createElement('div');
+    wrap.className = 'home';
+    const tiles = document.createElement('div');
+    tiles.className = 'tiles';
+
+    const BTN = [
+      {title:'Девайси',  cat:'Девайси',  desc:'Сигарети, под-системи тощо'},
+      {title:'Рідини',   cat:'Рідини',   desc:'Смаки на будь-який смак'},
+      {title:'Картриджі',cat:'Картриджі',desc:'Сумісні моделі та бренди'},
+    ];
+    BTN.forEach(b=>{
+      const t = document.createElement('div');
+      t.className='tile';
+      t.innerHTML = `<h3>${b.title}</h3><p>${b.desc}</p>`;
+      t.onclick = ()=>{ SELECTED_CAT = b.cat; location.hash = '#catalog'; };
+      tiles.appendChild(t);
+    });
+
+    const all = document.createElement('button');
+    all.className='primary'; all.textContent='Переглянути весь каталог';
+    all.onclick = ()=>{ SELECTED_CAT = 'Усе'; location.hash = '#catalog'; };
+
+    wrap.appendChild(tiles);
+    wrap.appendChild(all);
+    app.replaceChildren(wrap);
+  }
+
+  // Каталог (с фильтром по SELECTED_CAT)
+  async function showCatalog(){
+    $('header h2').textContent = '🛍 Вітрина';
+    await ensureCatalog();
 
     const grid = document.createElement('div');
     grid.className = 'grid';
@@ -191,16 +205,15 @@
           <button class="primary" type="button">Додати</button>
         </div>
       `;
-      // клик по карточке — открываем модалку с описанием
+      // клик по карточке — страница товара
       card.addEventListener('click', (e) => {
-        if (e.target.tagName === 'BUTTON') return; // кнопка — отдельная логика
-        openProduct(p);
+        if (e.target.tagName === 'BUTTON') return;
+        location.hash = '#product/' + encodeURIComponent(p.sku);
       });
       // кнопка "Додати"
       card.querySelector('button').onclick = (e) => {
         e.stopPropagation();
-        CART.set(p.sku, (CART.get(p.sku)||0)+1);
-        renderCartCount();
+        addToCart(p.sku, 1);
       };
       grid.appendChild(card);
     });
@@ -208,14 +221,44 @@
     app.replaceChildren(grid);
   }
 
-  // ------- оформлення -------
-  function showCheckout(){
+  // Страница товара
+  async function showProduct(sku){
+    await ensureCatalog();
+    const p = CATALOG.find(x=>x.sku===sku);
+    if (!p){ alert('Товар не знайдено'); location.hash='#catalog'; return; }
+
+    $('header h2').textContent = '📦 Товар';
+
+    const back = document.createElement('button');
+    back.className='back'; back.textContent='← До каталогу';
+    back.onclick = ()=> history.length>1 ? history.back() : (location.hash='#catalog');
+
+    const page = document.createElement('div');
+    page.className='product';
+    page.innerHTML = `
+      <img src="${normalizeImg(p.image_url)}" onerror="this.onerror=null;this.src='${PLACEHOLDER}'" alt="">
+      <div>
+        <h3 style="margin-top:0">${p.title}</h3>
+        <div class="muted" style="margin:6px 0 10px">${p.category ? ('Категорія: '+p.category) : ''}</div>
+        <p>${p.description || '—'}</p>
+        <div class="row" style="margin-top:12px">
+          <div class="price">${currency(p.price, p.currency)}</div>
+          <button id="p-add" class="primary" type="button">Додати в кошик</button>
+        </div>
+      </div>
+    `;
+
+    app.replaceChildren(back, page);
+    $('#p-add').onclick = ()=> addToCart(p.sku, 1);
+  }
+
+  // Оформлення
+  async function showCheckout(){
     if (CART.size===0){ alert('Корзина порожня. Додайте товари.'); location.hash='catalog'; return; }
     $('header h2').textContent = '📝 Оформлення';
+    await ensureCatalog();
 
-    const wrap = document.createElement('div');
-    wrap.className = 'checkout';
-
+    const wrap = document.createElement('div'); wrap.className='checkout';
     const box = document.createElement('div'); box.className='items';
     for (const [sku,qty] of CART.entries()){
       const p = CATALOG?.find(x=>x.sku===sku); if(!p) continue;
@@ -236,8 +279,7 @@
       <div class="field"><label>Телефон</label><input id="phone" placeholder="+380..."><div class="hint">Перевірте номер телефону.</div></div>
       <div class="bar"><button id="confirm" class="primary" type="button">Надіслати замовлення</button></div>
     `;
-    wrap.appendChild(box); wrap.appendChild(f);
-    app.replaceChildren(wrap);
+    wrap.appendChild(box); wrap.appendChild(f); app.replaceChildren(wrap);
 
     $('#confirm').onclick = () => {
       const city=$('#city').value.trim(), branch=$('#branch').value.trim(),
@@ -256,28 +298,34 @@
     };
   }
 
-  // ------- роутер -------
-  function wantsCheckout(){
-    const q=new URLSearchParams(location.search);
-    return location.hash==='#checkout' || (q.get('view')||'').toLowerCase()==='checkout';
-  }
-  function renderByHash(){
-    const v = (location.hash || (wantsCheckout() ? '#checkout' : '#catalog')).toLowerCase();
-    if (v==='#checkout') showCheckout(); else showCatalog();
+  // ---------------- router ----------------
+  function route(){
+    const h = (location.hash || '#home').slice(1); // без '#'
+    const [path, arg] = h.split('/');
+
+    // показываем/скрываем чипы категорий
+    chipsEl.style.display = (path==='catalog') ? '' : 'none';
+
+    if (path==='home')        return showHome();
+    if (path==='catalog')     return showCatalog();
+    if (path==='category')    { SELECTED_CAT = decodeURIComponent(arg||'Усе'); return showCatalog(); }
+    if (path==='product')     return showProduct(decodeURIComponent(arg||''));
+    if (path==='checkout')    return showCheckout();
+
+    // unknown -> home
+    location.hash = '#home';
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    try{ sessionStorage.removeItem('ui_step'); }catch(e){}
-    renderByHash();
-    renderCartCount();
-  });
-  window.addEventListener('hashchange', renderByHash);
+  // init
+  loadCart(); renderCartCount();
+  document.addEventListener('DOMContentLoaded', route);
+  window.addEventListener('hashchange', route);
 
-  // верхние кнопки
-  $('#btn-catalog').addEventListener('click', ()=> location.hash='catalog');
+  // top buttons
+  $('#btn-catalog').addEventListener('click', ()=> location.hash='#catalog');
   $('#btn-checkout').addEventListener('click', ()=>{
     if (!CART.size) return alert('Корзина порожня.');
-    location.hash='checkout';
+    location.hash='#checkout';
   });
   $('#btn-cart').addEventListener('click', ()=> alert(
     Array.from(CART.entries()).map(([s,q])=>`${s} × ${q}`).join('\n') || 'Порожньо'
@@ -285,6 +333,7 @@
 </script>
 </body>
 </html>
+
 
 
 
