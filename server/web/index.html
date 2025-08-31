@@ -70,6 +70,39 @@
   </style>
 </head>
 <body>
+<script>
+  function isTg() {
+    try {
+      return typeof Telegram !== 'undefined' &&
+             Telegram.WebApp &&
+             typeof Telegram.WebApp.sendData === 'function';
+    } catch(e){ return false; }
+  }
+
+  // внутри showCheckout() — привязка кнопки:
+  document.getElementById('confirm').onclick = () => {
+    const city      = document.getElementById('city').value.trim();
+    const branch    = document.getElementById('branch').value.trim();
+    const receiver  = document.getElementById('receiver').value.trim();
+    const phone     = document.getElementById('phone').value.trim();
+    const username  = document.getElementById('username').value.trim(); // опционально
+    if (!city || !branch || !receiver || !phone) {
+      alert('Заповніть усі обовʼязкові поля.'); return;
+    }
+    const items = Array.from(CART.entries()).map(([sku, qty]) => ({ sku, qty }));
+    const payload = { type: 'checkout', items, city, branch, receiver, phone, username };
+
+    if (isTg()) {
+      Telegram.WebApp.ready();
+      Telegram.WebApp.sendData(JSON.stringify(payload));
+      Telegram.WebApp.close(); // окно закроется, без лишних попапов
+    } else {
+      // только если не мини-апп — показываем превью
+      alert('Це демо-режим (відкрийте з кнопки у Telegram).\n\n' +
+            JSON.stringify(payload, null, 2));
+    }
+  };
+</script>
 
   <header>
     <h2>🛍 Вітрина</h2>
@@ -432,6 +465,7 @@
 </script>
 </body>
 </html>
+
 
 
 
