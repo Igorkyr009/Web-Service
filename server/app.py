@@ -16,6 +16,77 @@ logging.basicConfig(level=logging.INFO)
 
 BASE_DIR   = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "web"
+# --- настройки
+ADMIN_IDS = [
+    int(x) for x in os.getenv("ADMIN_IDS", "").replace(" ", "").split(",")
+    if x.isdigit()
+]
+
+def build_order_text(order_id, user, items, total, cur, city, branch, receiver, phone, username):
+    lines = [f"🆕 Нове замовлення #{order_id}",
+             f"Покупець: {user.first_name or ''} {user.last_name or ''} "
+             f"({('@'+user.username) if user.username else '—'})",
+             f"UserID: {user.id}"]
+    for sku, title, price, qty in items:
+        lines.append(f"• {title} × {qty} = {price*qty} {cur}")
+    lines += [f"Итого: {total} {cur}",
+              f"Місто: {city}",
+              f"Відділення: {branch}",
+              f"Отримувач: {receiver}",
+              f"Телефон: {phone}"]
+    if username:
+        lines.append(f"Юзернейм (з форми): {username}")
+    return "\n".join(lines)
+
+@dp.message(F.web_app_data)
+async def on_webapp_data(m: Message):
+    # 1) читаем
+    try:
+        data = json.loads(m.web_app_data.data)
+    except Exception as e:
+        await m.answer("⚠️ Не вдалося прочитати дані замовлення.")
+        print("web_app_data parse error:", e, m.web_app_data.data)
+        return
+
+    if data.get("type") != "checkout":
+        return await m.answer("Отримано дані, але тип невідомий.")
+
+    # 2) собираем позиции/итог
+    items, total, currency = [], 0, "UAH"
+    for it in data.get("items", []):
+        sku = str(it.get("sku"))
+        qty = int(it.get("qty", 1))
+        p = CATALOG.get(sku)   # ваш каталог из кода
+        if not p or qty <= 0:
+            continue
+        items.append((sku, p["title"], p["price"], qty))
+        total += p["price"] * qty
+        currency = p["currency"]
+
+    if not items:
+        return await m.answer("Корзина порожня.")
+
+    city     = (data.get("city") or "").strip()
+    branch   = (data.get("branch") or "").strip()
+    receiver = (data.get("receiver") or "").strip()
+    phone    = (data.get("phone") or "").strip()
+    username = (data.get("username") or "").strip()
+
+    # 3) сохраняем в БД
+    order_id = await save_order(m.from_user, items, total, currency, city, branch, receiver, phone)
+
+    # 4) подтверждение покупателю
+    await m.answer(f"✅ Замовлення #{order_id} прийнято! Дякуємо. "
+                   f"Ми звʼяжемось щодо доставки.")
+
+    # 5) уведомление администраторам
+    text = build_order_text(order_id, m.from_user, items, total, currency, city, branch, receiver, phone, username)
+
+    for aid in ADMIN_IDS:
+        try:
+            await bot.send_message(aid, text, disable_web_page_preview=True)
+        except Exception as e:
+            print(f"send admin error chat_id={aid}:", e)
 
 # ---------- ENV ----------
 load_dotenv()
