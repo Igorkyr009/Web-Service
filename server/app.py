@@ -7,6 +7,80 @@ from typing import Dict, Any
 import aiosqlite
 from aiohttp import web
 from PIL import Image
+# вверху файла рядом с другими импортами
+from aiogram import Bot
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
+
+# после загрузки .env
+ADMIN_BOT_TOKEN = os.getenv("ADMIN_BOT_TOKEN", "").strip()
+ADMIN_CHAT_ID   = os.getenv("ADMIN_CHAT_ID", "").strip() or os.getenv("ADMIN_ID","").strip()
+
+# основной бот (магазин) у тебя уже есть: bot = Bot(BOT_TOKEN, ...)
+# создаём (по возможности) отдельного админ-бота
+admin_bot = None
+if ADMIN_BOT_TOKEN:
+    admin_bot = Bot(ADMIN_BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+else:
+    # если отдельного бота нет — будем слать с основного
+    admin_bot = bot
+
+async def notify_admin_text(text: str):
+    if not ADMIN_CHAT_ID:
+        return
+    try:
+        await admin_bot.send_message(int(ADMIN_CHAT_ID), text)
+    except Exception as e:
+        print("notify_admin error:", e)
+@dp.message(F.web_app_data)
+async def on_webapp_data(m: Message):
+    data = json.loads(m.web_app_data.data)
+    if data.get("type") != "checkout":
+        return await m.answer("Невідомий тип даних із вітрини.")
+
+    # содержимое корзины (как у тебя было)
+    items = []
+    total = 0
+    currency = "UAH"
+    for it in data.get("items", []):
+        sku = str(it.get("sku")); qty = int(it.get("qty", 1))
+        p = CATALOG.get(sku)
+        if not p or qty <= 0: continue
+        items.append((sku, p["title"], p["price"], qty))
+        total += p["price"] * qty
+        currency = p["currency"]
+
+    if not items:
+        return await m.answer("Корзина пуста.")
+
+    city     = (data.get("city") or "").strip()
+    branch   = (data.get("branch") or "").strip()
+    receiver = (data.get("receiver") or "").strip()
+    phone    = (data.get("phone") or "").strip()
+    username = (data.get("username") or "").strip()  # НОВОЕ (обязателен на фронте)
+
+    # сохраним заказ в БД (как и раньше)
+    order_id = await save_order(
+        m.from_user, items, total, currency, city, branch, receiver, phone
+    )
+
+    # ответ покупателю в чат
+    await m.answer(f"✅ Замовлення #{order_id} створено! Ми звʼяжемося з вами щодо доставки.")
+
+    # Уведомление админу (в отдельного админ-бота/чат)
+    items_txt = "\n".join([f"• {t} × {q} = {p*q} {currency}" for _, t, p, q in items])
+    buyer_un = username or (('@'+m.from_user.username) if m.from_user.username else '—')
+    buyer_name = f"{m.from_user.first_name or ''} {m.from_user.last_name or ''}".strip()
+    admin_msg = (
+        f"🆕 <b>Замовлення #{order_id}</b>\n"
+        f"Клієнт: {buyer_name} ({buyer_un})\n"
+        f"UserID: <code>{m.from_user.id}</code>\n\n"
+        f"{items_txt}\n<b>Разом:</b> {total} {currency}\n\n"
+        f"<b>Доставка (НП)</b>\n"
+        f"Місто: {city}\nВідділення: {branch}\n"
+        f"Отримувач: {receiver}\nТелефон: {phone}"
+    )
+    await notify_admin_text(admin_msg)
 
 # HEIC/HEIF (необязательно; если не соберётся — просто будет OFF)
 try:
