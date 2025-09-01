@@ -2,27 +2,31 @@
 import os, asyncio, json, time, uuid
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any
 
 import aiosqlite
 from aiohttp import web
 from PIL import Image
-import pillow_heif
 
+# HEIC/HEIF (необязательно; если не соберётся — просто будет OFF)
+try:
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+    print("HEIF support: ON")
+except Exception as e:
+    print(f"HEIF support: OFF ({e})")
 
-# ===================== ENV & DIRS =====================
-DB_PATH     = os.getenv("DB_PATH", "./data/shop.db")
-UPLOAD_DIR  = os.getenv("UPLOAD_DIR", "./uploads")
-PUBLIC_DIR  = os.getenv("PUBLIC_DIR", "./public")
+# ---------- ПУТИ ----------
+BASE_DIR   = Path(__file__).parent               # /server
+DB_PATH    = os.getenv("DB_PATH", "/tmp/shop.db")
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/tmp/uploads")
+PUBLIC_DIR = os.getenv("PUBLIC_DIR", str(BASE_DIR / "web"))
 
 Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
 Path(UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
 Path(PUBLIC_DIR).mkdir(parents=True, exist_ok=True)
 
-pillow_heif.register_heif_opener()  # HEIC/HEIF поддержка
-
-
-# ===================== DB SCHEMA =====================
+# ---------- СХЕМА ----------
 CREATE_SQL = """
 PRAGMA journal_mode = WAL;
 
@@ -64,16 +68,16 @@ CREATE TABLE IF NOT EXISTS order_items (
 );
 """
 
-async def db() -> aiosqlite.Connection:
-    return await aiosqlite.connect(DB_PATH)
+def db():
+    # ВАЖНО: без await — иначе словишь "threads can only be started once"
+    return aiosqlite.connect(DB_PATH)
 
 async def init_db():
-    async with await db() as d:
+    async with db() as d:
         await d.executescript(CREATE_SQL)
         await d.commit()
 
-
-# ===================== HELPERS =====================
+# ---------- УТИЛИТЫ ----------
 def row_to_product(row) -> Dict[str, Any]:
     return {
         "sku": row[0],
@@ -97,78 +101,65 @@ def ok(data=None, **kw):
 def err(msg: str, code=400):
     return web.json_response({"ok": False, "error": msg}, status=code)
 
-
-# ===================== API: PRODUCTS =====================
+# ---------- API: ТОВАРЫ ----------
 async def api_products(request: web.Request):
-    """GET /api/products : все товары (для админки)"""
+    """GET /api/products — список для админки (все товары)"""
     q = request.rel_url.query
     where, params = [], []
     if "q" in q:
         where.append("(sku LIKE ? OR title LIKE ?)")
-        v = f"%{q['q']}%"
-        params += [v, v]
+        v = f"%{q['q']}%"; params += [v, v]
     if "category" in q:
         where.append("category = ?"); params.append(q["category"])
     sql = "SELECT sku,title,description,price,currency,category,is_active,availability,image_url FROM products"
     if where:
         sql += " WHERE " + " AND ".join(where)
     sql += " ORDER BY category, title"
-    async with await db() as d:
+    async with db() as d:
         cur = await d.execute(sql, params)
         rows = await cur.fetchall()
     return ok({"items": [row_to_product(r) for r in rows]})
 
 async def api_catalog(request: web.Request):
-    """GET /api/catalog : активные товары (для витрины)"""
+    """GET /api/catalog — активные товары для витрины"""
     q = request.rel_url.query
-    where = ["is_active = 1"]
-    params = []
+    where, params = ["is_active = 1"], []
     if "category" in q:
         where.append("category = ?"); params.append(q["category"])
     if "q" in q:
         where.append("(sku LIKE ? OR title LIKE ?)")
         v = f"%{q['q']}%"; params += [v, v]
-
     sql = f"""
       SELECT sku,title,description,price,currency,category,is_active,availability,image_url
       FROM products
       WHERE {' AND '.join(where)}
       ORDER BY category, title
     """
-    async with await db() as d:
+    async with db() as d:
         cur = await d.execute(sql, params)
         rows = await cur.fetchall()
     return ok({"items": [row_to_product(r) for r in rows]})
 
 async def api_upsert_product(request: web.Request):
-    """PUT /api/products/{sku} : создать/обновить товар (UPSERT)"""
+    """PUT /api/products/{sku} — создать/обновить товар (UPSERT)"""
     sku = request.match_info.get("sku", "").strip()
     if not sku:
         return err("empty sku")
-
     try:
         body = await request.json()
     except:
         return err("bad json")
 
     fields = {
-        "title": None,
-        "description": None,
-        "price": None,
-        "currency": None,
-        "category": None,
-        "is_active": None,
-        "availability": None,
-        "image_url": None,
+        "title": None, "description": None, "price": None, "currency": None,
+        "category": None, "is_active": None, "availability": None, "image_url": None,
     }
     for k in list(fields.keys()):
         if k in body:
             fields[k] = body[k]
 
-    # upsert
-    async with await db() as d:
-        # exists?
-        cur = await d.execute("SELECT COUNT(1) FROM products WHERE sku = ?", (sku,))
+    async with db() as d:
+        cur = await d.execute("SELECT COUNT(1) FROM products WHERE sku=?", (sku,))
         exists = (await cur.fetchone())[0] > 0
 
         if exists:
@@ -176,48 +167,41 @@ async def api_upsert_product(request: web.Request):
             for k,v in fields.items():
                 if v is not None:
                     set_parts.append(f"{k}=?"); values.append(v)
-            if not set_parts:
-                return ok()
-            values.append(sku)
-            await d.execute(f"UPDATE products SET {', '.join(set_parts)} WHERE sku=?", values)
+            if set_parts:
+                values.append(sku)
+                await d.execute(f"UPDATE products SET {', '.join(set_parts)} WHERE sku=?", values)
         else:
-            # defaults
             title = fields["title"] or sku
             price = int(fields["price"] or 0)
             currency = fields["currency"] or "UAH"
-            category = fields["category"] or None
+            category = fields["category"]
             is_active = int(fields["is_active"] if fields["is_active"] is not None else 1)
             availability = fields["availability"] or "in_stock"
-            image_url = fields["image_url"] or None
-            description = fields["description"] or None
+            image_url = fields["image_url"]
+            description = fields["description"]
             await d.execute("""
               INSERT INTO products (sku,title,description,price,currency,category,is_active,availability,image_url)
               VALUES (?,?,?,?,?,?,?,?,?)
             """, (sku, title, description, price, currency, category, is_active, availability, image_url))
         await d.commit()
-
     return ok()
 
-# ===================== API: UPLOAD IMAGE =====================
+# ---------- API: UPLOAD ----------
 async def api_upload(request: web.Request):
-    """POST /api/upload : принимает image/*, центр-кроп в квадрат 800x800, JPEG, возвращает URL."""
+    """POST /api/upload — image/* → центр-кроп 800×800 JPEG → путь /uploads/xxx.jpg"""
     reader = await request.multipart()
     field = await reader.next()
     if not field or field.name not in ("file","image","photo"):
         return err("no file")
-
     data = await field.read(decode=False)
     if not data:
         return err("empty file")
-
     try:
         im = Image.open(BytesIO(data))
     except Exception as e:
         return err(f"bad image: {e}")
-
     if im.mode not in ("RGB","L"):
         im = im.convert("RGB")
-
     w, h = im.size
     side = min(w, h)
     left = (w - side) // 2
@@ -231,22 +215,16 @@ async def api_upload(request: web.Request):
         im.save(out_path, "JPEG", quality=88, optimize=True, progressive=True)
     except Exception as e:
         return err(f"save error: {e}", 500)
-
     return ok({"url": f"/uploads/{name}"})
 
-
-# ===================== STATIC PAGES =====================
+# ---------- СТРАНИЦЫ ----------
 async def serve_index(request: web.Request):
     path = Path(PUBLIC_DIR) / "index.html"
-    if not path.exists():
-        return web.Response(status=404, text="index.html not found")
-    return web.FileResponse(path)
+    return web.FileResponse(path) if path.exists() else web.Response(status=404, text="index.html not found")
 
 async def serve_admin(request: web.Request):
     path = Path(PUBLIC_DIR) / "admin.html"
-    if not path.exists():
-        return web.Response(status=404, text="admin.html not found")
-    return web.FileResponse(path)
+    return web.FileResponse(path) if path.exists() else web.Response(status=404, text="admin.html not found")
 
 async def root_redirect(request: web.Request):
     raise web.HTTPFound("/index.html")
@@ -254,8 +232,7 @@ async def root_redirect(request: web.Request):
 async def health(request: web.Request):
     return ok({"status":"ok"})
 
-
-# ===================== APP =====================
+# ---------- APP ----------
 def make_app() -> web.Application:
     app = web.Application()
     # API
@@ -266,30 +243,27 @@ def make_app() -> web.Application:
         web.post("/api/upload",   api_upload),
         web.get("/health",        health),
     ])
-    # Static
+    # статика с загруженными
     app.router.add_static("/uploads/", path=UPLOAD_DIR, show_index=False)
-    # Pages
+    # страницы
     app.add_routes([
-        web.get("/",          root_redirect),
+        web.get("/",           root_redirect),
         web.get("/index.html", serve_index),
         web.get("/admin.html", serve_admin),
     ])
     return app
 
-
 async def main():
     await init_db()
     app = make_app()
-    port = int(os.getenv("PORT", "10000"))
+    port = int(os.getenv("PORT", "10000"))  # Render подставляет $PORT
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, host="0.0.0.0", port=port)
     await site.start()
-    print(f"Web service started on 0.0.0.0:{port}")
-    # keep alive
+    print(f"HTTP on :{port}", flush=True)
     while True:
         await asyncio.sleep(3600)
-
 
 if __name__ == "__main__":
     asyncio.run(main())
