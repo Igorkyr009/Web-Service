@@ -4,69 +4,79 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Адмінка</title>
 <style>
-  body{font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;margin:0 auto;max-width:960px;padding:16px}
+  *,*::before,*::after{box-sizing:border-box}
+  body{font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;margin:0 auto;max-width:980px;padding:16px;background:#fafafa;color:#0f172a}
   h2{margin:0 0 12px}
-  .row{display:grid;grid-template-columns:160px 1fr;gap:12px;margin:8px 0}
-  input,select,textarea{width:100%;padding:10px;border:1px solid #ddd;border-radius:12px}
+  .row{display:grid;grid-template-columns:180px 1fr;gap:12px;margin:10px 0}
+  input,select,textarea{width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:12px;background:#fff}
   button{padding:10px 14px;border:1px solid #0ea5e9;background:#0ea5e9;color:#fff;border-radius:12px;cursor:pointer}
   .ghost{background:#fff;color:#0ea5e9}
-  img.preview{width:160px;height:160px;object-fit:cover;border-radius:12px;border:1px solid #eee;background:#f6f6f6}
-  .muted{color:#667085;font-size:12px}
+  .muted{color:#64748b}
   .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 16px}
+  .card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px}
+  img.preview{width:180px;height:180px;object-fit:cover;border-radius:12px;border:1px solid #e5e7eb;background:#f3f4f6}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 </style>
 <body>
   <h2>Адмінка</h2>
 
   <div class="toolbar">
     <button id="btnCreate" class="ghost">+ Створити товар</button>
-    <input id="search" placeholder="Пошук по SKU/назві" style="flex:1;border-color:#ccc">
-    <button id="btnReload" class="ghost">Оновити список</button>
-    <a href="/index.html#catalog" target="_blank" class="ghost" style="text-decoration:none;padding:10px 14px;border:1px solid #ddd;border-radius:12px">→ Вітрина</a>
+    <input id="search" placeholder="Пошук по SKU/назві" style="flex:1;border-color:#e5e7eb">
+    <button id="btnReload" class="ghost">Оновити</button>
+    <a href="/index.html#%2Fcatalog" target="_blank" class="ghost" style="text-decoration:none;padding:10px 14px;border:1px solid #e5e7eb;border-radius:12px">→ Вітрина</a>
   </div>
 
-  <div class="row"><label>Товар</label><select id="sku"></select></div>
-  <div class="row"><label>Назва</label><input id="title"></div>
-  <div class="row"><label>Опис</label><textarea id="description" rows="3"></textarea></div>
-  <div class="row"><label>Ціна (UAH)</label><input id="price" type="number" min="0" step="1"></div>
-  <div class="row"><label>Категорія</label><input id="category" placeholder="devises / liquids / cartridges"></div>
-
-  <div class="row"><label>Статус</label>
-    <select id="availability">
-      <option value="in_stock">В наявності</option>
-      <option value="preorder">Предзамовлення</option>
-    </select>
-  </div>
-
-  <div class="row"><label>Активний</label>
-    <select id="is_active">
-      <option value="1">Так</option>
-      <option value="0">Ні</option>
-    </select>
-  </div>
-
-  <div class="row"><label>Зображення</label>
-    <div>
-      <img id="preview" class="preview" alt="">
-      <div style="margin-top:8px"><input id="file" type="file" accept="image/*" capture="environment"></div>
-      <div class="muted">HEIC/HEIF конвертується. Зображення автоматично обрізається в квадрат 800×800.</div>
+  <div class="card">
+    <div class="row"><label>Товар</label><select id="sku"></select></div>
+    <div class="two">
+      <div>
+        <div class="row"><label>Назва</label><input id="title"></div>
+        <div class="row"><label>Опис</label><textarea id="description" rows="4"></textarea></div>
+        <div class="row"><label>Ціна (UAH)</label><input id="price" type="number" min="0" step="1"></div>
+        <div class="row"><label>Категорія</label><input id="category" placeholder="devises / liquids / cartridges"></div>
+        <div class="row"><label>Статус</label>
+          <select id="availability">
+            <option value="in_stock">В наявності</option>
+            <option value="preorder">Предзамовлення</option>
+          </select>
+        </div>
+        <div class="row"><label>Активний</label>
+          <select id="is_active"><option value="1">Так</option><option value="0">Ні</option></select>
+        </div>
+      </div>
+      <div>
+        <div class="row"><label>Зображення</label>
+          <div>
+            <img id="preview" class="preview" alt="">
+            <div style="margin-top:8px">
+              <!-- accept image/* и БЕЗ capture → можно выбрать из галереи -->
+              <input id="file" type="file" accept="image/*">
+            </div>
+            <div class="muted" style="margin-top:6px">Зображення автоматично обрізається до квадрату 800×800 (JPEG).</div>
+          </div>
+        </div>
+        <div class="row"><label>image_url</label><input id="image_url" readonly></div>
+      </div>
     </div>
+    <div class="row"><label></label><button id="save">Зберегти</button></div>
   </div>
-
-  <div class="row"><label>image_url</label><input id="image_url" readonly></div>
-
-  <div class="row"><label></label><button id="save">Зберегти</button></div>
 
 <script>
 const $ = s=>document.querySelector(s);
 const S = id=>document.getElementById(id);
-let list = [];
+let LIST = [];
 
 async function load(q=""){
   const r = await fetch('/api/products'+(q?`?q=${encodeURIComponent(q)}`:'')); const j=await r.json();
-  list = j.items || [];
+  LIST = j.items || [];
   const sel = S('sku');
-  sel.innerHTML = list.map(p=>`<option value="${p.sku}">${p.sku} — ${p.title}</option>`).join('');
-  if(list.length) fill(list[0]);
+  sel.innerHTML = LIST.map(p=>`<option value="${p.sku}">${p.sku} — ${p.title}</option>`).join('');
+  if(LIST.length) fill(LIST[0]);
+  sel.onchange = ()=>{
+    const p = LIST.find(x=>x.sku===sel.value);
+    if(p) fill(p);
+  }
 }
 
 function fill(p){
@@ -80,11 +90,6 @@ function fill(p){
   S('image_url').value = p.image_url || '';
   S('preview').src = p.image_url || '';
 }
-
-S('sku').addEventListener('change', e=>{
-  const p = list.find(x=>x.sku===e.target.value);
-  if(p) fill(p);
-});
 
 S('file').addEventListener('change', async (e)=>{
   const f = e.target.files[0]; if(!f) return;
@@ -113,7 +118,8 @@ S('save').addEventListener('click', async ()=>{
   const j = await r.json();
   if(!j.ok){ alert('Не збережено: '+(j.error||'')); return; }
   alert('Збережено');
-  const p = list.find(x=>x.sku===sku); if(p) Object.assign(p, body);
+  // локально обновим список
+  const p = LIST.find(x=>x.sku===sku); if(p) Object.assign(p, body);
 });
 
 $('#btnCreate').onclick = async ()=>{
@@ -125,7 +131,7 @@ $('#btnCreate').onclick = async ()=>{
   const j = await r.json();
   if(!j.ok){ alert('Не створено: '+(j.error||'')); return; }
   await load($('#search').value.trim());
-  S('sku').value = sku; const p = list.find(x=>x.sku===sku); if(p) fill(p);
+  S('sku').value = sku; const p = LIST.find(x=>x.sku===sku); if(p) fill(p);
 };
 $('#btnReload').onclick = ()=> load($('#search').value.trim());
 $('#search').addEventListener('keydown', e=>{ if(e.key==='Enter') $('#btnReload').click(); });
@@ -138,6 +144,7 @@ load();
 
 
    
+
 
 
 
