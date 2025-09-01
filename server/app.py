@@ -1,119 +1,69 @@
 # /server/app.py
-import os, asyncio, json, time, uuid
+import os, asyncio, time, json, mimetypes, secrets
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, Any
-
-import aiosqlite
 from aiohttp import web
+from dotenv import load_dotenv
+import aiosqlite
 from PIL import Image
-# вверху файла рядом с другими импортами
-from aiogram import Bot
-from aiogram.client.default import DefaultBotProperties
+
+from aiogram import Bot, Dispatcher, F
+from aiogram.types import Message, WebAppInfo, MenuButtonWebApp
 from aiogram.enums import ParseMode
+from aiogram.filters import Command
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.client.default import DefaultBotProperties
 
-# после загрузки .env
-ADMIN_BOT_TOKEN = os.getenv("ADMIN_BOT_TOKEN", "").strip()
-ADMIN_CHAT_ID   = os.getenv("ADMIN_CHAT_ID", "").strip() or os.getenv("ADMIN_ID","").strip()
+# -------------------- ENV --------------------
+load_dotenv()
 
-# основной бот (магазин) у тебя уже есть: bot = Bot(BOT_TOKEN, ...)
-# создаём (по возможности) отдельного админ-бота
-admin_bot = None
-if ADMIN_BOT_TOKEN:
-    admin_bot = Bot(ADMIN_BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-else:
-    # если отдельного бота нет — будем слать с основного
-    admin_bot = bot
+BOT_TOKEN        = os.getenv("BOT_TOKEN", "").strip()
+ADMIN_ID         = os.getenv("ADMIN_ID", "").strip()
+ADMIN_BOT_TOKEN  = os.getenv("ADMIN_BOT_TOKEN", "").strip()
+ADMIN_CHAT_ID    = os.getenv("ADMIN_CHAT_ID", "").strip() or ADMIN_ID
+ADMIN_SECRET     = os.getenv("ADMIN_SECRET", "").strip()  # для админ-API
+PORT             = int(os.getenv("PORT", "8000"))
 
-async def notify_admin_text(text: str):
+BASE_DIR   = Path(__file__).resolve().parent
+WEB_DIR    = BASE_DIR / "web"
+DATA_ROOT  = Path("/data")
+TMP_ROOT   = Path("/tmp")
+
+# DB и загрузки — с безопасным фоллбеком
+DB_PATH    = (DATA_ROOT / "shop.db") if DATA_ROOT.exists() else (TMP_ROOT / "shop.db")
+UPLOAD_DIR = (DATA_ROOT / "uploads") if DATA_ROOT.exists() else (TMP_ROOT / "uploads")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+if not BOT_TOKEN:
+    raise SystemExit("BOT_TOKEN не задан")
+
+# -------------------- TELEGRAM --------------------
+bot = Bot(BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+dp  = Dispatcher()  # ВАЖНО: создаём ДО декораторов!
+
+# отдельный бот для уведомлений
+admin_bot = Bot(ADMIN_BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML)) if ADMIN_BOT_TOKEN else bot
+
+async def notify_admin(text: str):
     if not ADMIN_CHAT_ID:
         return
     try:
         await admin_bot.send_message(int(ADMIN_CHAT_ID), text)
     except Exception as e:
         print("notify_admin error:", e)
-@dp.message(F.web_app_data)
-async def on_webapp_data(m: Message):
-    data = json.loads(m.web_app_data.data)
-    if data.get("type") != "checkout":
-        return await m.answer("Невідомий тип даних із вітрини.")
 
-    # содержимое корзины (как у тебя было)
-    items = []
-    total = 0
-    currency = "UAH"
-    for it in data.get("items", []):
-        sku = str(it.get("sku")); qty = int(it.get("qty", 1))
-        p = CATALOG.get(sku)
-        if not p or qty <= 0: continue
-        items.append((sku, p["title"], p["price"], qty))
-        total += p["price"] * qty
-        currency = p["currency"]
-
-    if not items:
-        return await m.answer("Корзина пуста.")
-
-    city     = (data.get("city") or "").strip()
-    branch   = (data.get("branch") or "").strip()
-    receiver = (data.get("receiver") or "").strip()
-    phone    = (data.get("phone") or "").strip()
-    username = (data.get("username") or "").strip()  # НОВОЕ (обязателен на фронте)
-
-    # сохраним заказ в БД (как и раньше)
-    order_id = await save_order(
-        m.from_user, items, total, currency, city, branch, receiver, phone
-    )
-
-    # ответ покупателю в чат
-    await m.answer(f"✅ Замовлення #{order_id} створено! Ми звʼяжемося з вами щодо доставки.")
-
-    # Уведомление админу (в отдельного админ-бота/чат)
-    items_txt = "\n".join([f"• {t} × {q} = {p*q} {currency}" for _, t, p, q in items])
-    buyer_un = username or (('@'+m.from_user.username) if m.from_user.username else '—')
-    buyer_name = f"{m.from_user.first_name or ''} {m.from_user.last_name or ''}".strip()
-    admin_msg = (
-        f"🆕 <b>Замовлення #{order_id}</b>\n"
-        f"Клієнт: {buyer_name} ({buyer_un})\n"
-        f"UserID: <code>{m.from_user.id}</code>\n\n"
-        f"{items_txt}\n<b>Разом:</b> {total} {currency}\n\n"
-        f"<b>Доставка (НП)</b>\n"
-        f"Місто: {city}\nВідділення: {branch}\n"
-        f"Отримувач: {receiver}\nТелефон: {phone}"
-    )
-    await notify_admin_text(admin_msg)
-
-# HEIC/HEIF (необязательно; если не соберётся — просто будет OFF)
-try:
-    from pillow_heif import register_heif_opener
-    register_heif_opener()
-    print("HEIF support: ON")
-except Exception as e:
-    print(f"HEIF support: OFF ({e})")
-
-# ---------- ПУТИ ----------
-BASE_DIR   = Path(__file__).parent               # /server
-DB_PATH    = os.getenv("DB_PATH", "/tmp/shop.db")
-UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/tmp/uploads")
-PUBLIC_DIR = os.getenv("PUBLIC_DIR", str(BASE_DIR / "web"))
-
-Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
-Path(UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
-Path(PUBLIC_DIR).mkdir(parents=True, exist_ok=True)
-
-# ---------- СХЕМА ----------
+# -------------------- DB --------------------
 CREATE_SQL = """
-PRAGMA journal_mode = WAL;
-
 CREATE TABLE IF NOT EXISTS products (
   sku TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
+  title TEXT,
   description TEXT,
-  price INTEGER NOT NULL,
+  price INTEGER NOT NULL DEFAULT 0,
   currency TEXT NOT NULL DEFAULT 'UAH',
-  category TEXT,
+  image_url TEXT,
   is_active INTEGER NOT NULL DEFAULT 1,
-  availability TEXT NOT NULL DEFAULT 'in_stock', -- in_stock | preorder
-  image_url TEXT
+  category TEXT,
+  availability TEXT NOT NULL DEFAULT 'in_stock'
 );
 
 CREATE TABLE IF NOT EXISTS orders (
@@ -142,204 +92,308 @@ CREATE TABLE IF NOT EXISTS order_items (
 );
 """
 
-def db():
-    # ВАЖНО: без await — иначе словишь "threads can only be started once"
-    return aiosqlite.connect(DB_PATH)
-
 async def init_db():
-    async with db() as d:
-        await d.executescript(CREATE_SQL)
-        await d.commit()
+    # создаём родительскую папку, если нужно
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.executescript(CREATE_SQL)
+        await db.commit()
 
-# ---------- УТИЛИТЫ ----------
-def row_to_product(row) -> Dict[str, Any]:
-    return {
-        "sku": row[0],
-        "title": row[1],
-        "description": row[2],
-        "price": row[3],
-        "currency": row[4],
-        "category": row[5],
-        "is_active": bool(row[6]),
-        "availability": row[7],
-        "image_url": row[8],
-    }
+# Простой каталог (fallback, если таблица пуста)
+DEFAULT_CATALOG = {
+    "coffee_1kg": {"title": "Кофе в зёрнах 1 кг", "price": 1299, "currency": "UAH", "image_url": "", "is_active": 0, "category":"devises", "availability":"in_stock"},
+    "mug_brand":  {"title": "Кружка бренда",       "price":  299, "currency": "UAH", "image_url": "", "is_active": 0, "category":"devises", "availability":"in_stock"},
+}
 
-def ok(data=None, **kw):
-    base = {"ok": True}
-    if data is not None:
-        base.update(data if isinstance(data, dict) else {"data": data})
-    base.update(kw)
-    return web.json_response(base)
+async def ensure_some_products():
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute("SELECT COUNT(*) FROM products")
+        n = (await cur.fetchone())[0]
+        if n == 0:
+            for sku, p in DEFAULT_CATALOG.items():
+                await db.execute(
+                    "INSERT OR REPLACE INTO products (sku,title,description,price,currency,image_url,is_active,category,availability) VALUES (?,?,?,?,?,?,?,?,?)",
+                    (sku, p["title"], "", p["price"], p["currency"], p.get("image_url",""), p.get("is_active",1), p.get("category",""), p.get("availability","in_stock"))
+                )
+            await db.commit()
 
-def err(msg: str, code=400):
-    return web.json_response({"ok": False, "error": msg}, status=code)
+# -------------------- AIROUTER (HTTP) --------------------
+def check_admin_secret(request: web.Request) -> bool:
+    if not ADMIN_SECRET:
+        return True  # если секрет не задан — не блокируем (на твой страх и риск)
+    key = request.headers.get("X-Admin-Secret") or request.query.get("key")
+    return key == ADMIN_SECRET
 
-# ---------- API: ТОВАРЫ ----------
+async def api_health(_):
+    return web.json_response({"ok": True, "ts": int(time.time())})
+
+async def api_catalog(_):
+    # только активные товары
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute("""
+            SELECT sku,title,description,price,currency,image_url,is_active,category,availability
+            FROM products
+            WHERE is_active=1
+            ORDER BY category NULLS LAST, title
+        """)
+        rows = await cur.fetchall()
+    items = [
+        dict(sku=r[0], title=r[1], description=r[2], price=r[3], currency=r[4],
+             image_url=r[5], is_active=bool(r[6]), category=r[7], availability=r[8])
+        for r in rows
+    ]
+    return web.json_response({"items": items})
+
 async def api_products(request: web.Request):
-    """GET /api/products — список для админки (все товары)"""
-    q = request.rel_url.query
-    where, params = [], []
-    if "q" in q:
-        where.append("(sku LIKE ? OR title LIKE ?)")
-        v = f"%{q['q']}%"; params += [v, v]
-    if "category" in q:
-        where.append("category = ?"); params.append(q["category"])
-    sql = "SELECT sku,title,description,price,currency,category,is_active,availability,image_url FROM products"
-    if where:
-        sql += " WHERE " + " AND ".join(where)
-    sql += " ORDER BY category, title"
-    async with db() as d:
-        cur = await d.execute(sql, params)
-        rows = await cur.fetchall()
-    return ok({"items": [row_to_product(r) for r in rows]})
-
-async def api_catalog(request: web.Request):
-    """GET /api/catalog — активные товары для витрины"""
-    q = request.rel_url.query
-    where, params = ["is_active = 1"], []
-    if "category" in q:
-        where.append("category = ?"); params.append(q["category"])
-    if "q" in q:
-        where.append("(sku LIKE ? OR title LIKE ?)")
-        v = f"%{q['q']}%"; params += [v, v]
-    sql = f"""
-      SELECT sku,title,description,price,currency,category,is_active,availability,image_url
+    if not check_admin_secret(request):
+        return web.Response(status=401, text="unauthorized")
+    q = (request.query.get("q") or "").strip()
+    sql = """
+      SELECT sku,title,description,price,currency,image_url,is_active,category,availability
       FROM products
-      WHERE {' AND '.join(where)}
-      ORDER BY category, title
     """
-    async with db() as d:
-        cur = await d.execute(sql, params)
+    args = []
+    if q:
+        sql += " WHERE sku LIKE ? OR title LIKE ?"
+        args = [f"%{q}%", f"%{q}%"]
+    sql += " ORDER BY category NULLS LAST, title"
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(sql, args)
         rows = await cur.fetchall()
-    return ok({"items": [row_to_product(r) for r in rows]})
+    items = [
+        dict(sku=r[0], title=r[1], description=r[2], price=r[3], currency=r[4],
+             image_url=r[5], is_active=bool(r[6]), category=r[7], availability=r[8])
+        for r in rows
+    ]
+    return web.json_response({"items": items})
 
-async def api_upsert_product(request: web.Request):
-    """PUT /api/products/{sku} — создать/обновить товар (UPSERT)"""
-    sku = request.match_info.get("sku", "").strip()
-    if not sku:
-        return err("empty sku")
+async def api_put_product(request: web.Request):
+    if not check_admin_secret(request):
+        return web.Response(status=401, text="unauthorized")
+    sku = request.match_info["sku"].strip()
     try:
         body = await request.json()
     except:
-        return err("bad json")
+        body = {}
+    title = (body.get("title") or "").strip()
+    description = (body.get("description") or "").strip()
+    price = int(body.get("price") or 0)
+    currency = (body.get("currency") or "UAH").strip()
+    image_url = (body.get("image_url") or "").strip()
+    is_active = 1 if int(body.get("is_active") or 0) else 0
+    category = (body.get("category") or "").strip()
+    availability = (body.get("availability") or "in_stock").strip()
 
-    fields = {
-        "title": None, "description": None, "price": None, "currency": None,
-        "category": None, "is_active": None, "availability": None, "image_url": None,
-    }
-    for k in list(fields.keys()):
-        if k in body:
-            fields[k] = body[k]
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+          INSERT INTO products (sku,title,description,price,currency,image_url,is_active,category,availability)
+          VALUES (?,?,?,?,?,?,?,?,?)
+          ON CONFLICT(sku) DO UPDATE SET
+            title=excluded.title,
+            description=excluded.description,
+            price=excluded.price,
+            currency=excluded.currency,
+            image_url=excluded.image_url,
+            is_active=excluded.is_active,
+            category=excluded.category,
+            availability=excluded.availability
+        """, (sku, title, description, price, currency, image_url, is_active, category, availability))
+        await db.commit()
+    return web.json_response({"ok": True, "sku": sku})
 
-    async with db() as d:
-        cur = await d.execute("SELECT COUNT(1) FROM products WHERE sku=?", (sku,))
-        exists = (await cur.fetchone())[0] > 0
-
-        if exists:
-            set_parts, values = [], []
-            for k,v in fields.items():
-                if v is not None:
-                    set_parts.append(f"{k}=?"); values.append(v)
-            if set_parts:
-                values.append(sku)
-                await d.execute(f"UPDATE products SET {', '.join(set_parts)} WHERE sku=?", values)
-        else:
-            title = fields["title"] or sku
-            price = int(fields["price"] or 0)
-            currency = fields["currency"] or "UAH"
-            category = fields["category"]
-            is_active = int(fields["is_active"] if fields["is_active"] is not None else 1)
-            availability = fields["availability"] or "in_stock"
-            image_url = fields["image_url"]
-            description = fields["description"]
-            await d.execute("""
-              INSERT INTO products (sku,title,description,price,currency,category,is_active,availability,image_url)
-              VALUES (?,?,?,?,?,?,?,?,?)
-            """, (sku, title, description, price, currency, category, is_active, availability, image_url))
-        await d.commit()
-    return ok()
-
-# ---------- API: UPLOAD ----------
 async def api_upload(request: web.Request):
-    """POST /api/upload — image/* → центр-кроп 800×800 JPEG → путь /uploads/xxx.jpg"""
+    if not check_admin_secret(request):
+        return web.Response(status=401, text="unauthorized")
     reader = await request.multipart()
-    field = await reader.next()
-    if not field or field.name not in ("file","image","photo"):
-        return err("no file")
-    data = await field.read(decode=False)
-    if not data:
-        return err("empty file")
+    part = await reader.next()
+    if not part or part.name != "file":
+        return web.Response(status=400, text="file part missing")
+
+    raw = await part.read()
+    # Обрезаем в квадрат 800x800
     try:
-        im = Image.open(BytesIO(data))
-    except Exception as e:
-        return err(f"bad image: {e}")
-    if im.mode not in ("RGB","L"):
-        im = im.convert("RGB")
-    w, h = im.size
+        img = Image.open(BytesIO(raw))
+        img.load()
+    except Exception:
+        return web.Response(status=415, text="unsupported image format")
+
+    w, h = img.size
     side = min(w, h)
     left = (w - side) // 2
     top  = (h - side) // 2
-    im = im.crop((left, top, left + side, top + side))
-    im = im.resize((800, 800), Image.LANCZOS)
+    img = img.crop((left, top, left + side, top + side)).resize((800, 800))
+    # всегда JPEG
+    out = BytesIO()
+    img.convert("RGB").save(out, format="JPEG", quality=88, optimize=True)
+    out.seek(0)
 
-    name = f"{uuid.uuid4().hex}.jpg"
-    out_path = Path(UPLOAD_DIR) / name
+    name = f"{int(time.time())}_{secrets.token_hex(4)}.jpg"
+    path = UPLOAD_DIR / name
+    with open(path, "wb") as f:
+        f.write(out.read())
+
+    return web.json_response({"ok": True, "url": f"/uploads/{name}"})
+
+# статика
+async def file_handler(request: web.Request):
+    # отдаём index.html/admin.html/прочие файлы из /web
+    rel = request.match_info.get("path", "").strip("/") or "index.html"
+    target = (WEB_DIR / rel).resolve()
+    if not str(target).startswith(str(WEB_DIR)):
+        return web.Response(status=403, text="forbidden")
+    if not target.exists():
+        return web.Response(status=404, text="not found")
+    if target.is_dir():
+        target = target / "index.html"
+        if not target.exists():
+            return web.Response(status=404, text="not found")
+    mime, _ = mimetypes.guess_type(str(target))
+    return web.FileResponse(path=target, headers={"Content-Type": mime or "text/html; charset=utf-8"})
+
+# -------------------- TELEGRAM HANDLERS --------------------
+WEBAPP_URL = os.getenv("WEBAPP_URL", "").strip() or f"http://localhost:{PORT}/index.html"
+
+async def setup_menu_button():
     try:
-        im.save(out_path, "JPEG", quality=88, optimize=True, progressive=True)
+        await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(text="🛍 Вітрина", web_app=WebAppInfo(url=WEBAPP_URL)))
     except Exception as e:
-        return err(f"save error: {e}", 500)
-    return ok({"url": f"/uploads/{name}"})
+        print("set_chat_menu_button error:", e)
 
-# ---------- СТРАНИЦЫ ----------
-async def serve_index(request: web.Request):
-    path = Path(PUBLIC_DIR) / "index.html"
-    return web.FileResponse(path) if path.exists() else web.Response(status=404, text="index.html not found")
+@dp.message(Command("start"))
+async def cmd_start(m: Message):
+    kb = InlineKeyboardBuilder()
+    kb.button(text="🛍 Відкрити вітрину", web_app=WebAppInfo(url=f"{WEBAPP_URL}#/catalog"))
+    kb.button(text="🧾 Оформлення",      web_app=WebAppInfo(url=f"{WEBAPP_URL}#/checkout"))
+    kb.adjust(1)
+    await m.answer("Вітаю! Оберіть дію:", reply_markup=kb.as_markup())
 
-async def serve_admin(request: web.Request):
-    path = Path(PUBLIC_DIR) / "admin.html"
-    return web.FileResponse(path) if path.exists() else web.Response(status=404, text="admin.html not found")
+@dp.message(F.web_app_data)
+async def on_webapp_data(m: Message):
+    # ждём JSON payload от webapp
+    try:
+        data = json.loads(m.web_app_data.data)
+    except Exception:
+        return await m.answer("Не вдалося прочитати дані з вітрини.")
 
-async def root_redirect(request: web.Request):
-    raise web.HTTPFound("/index.html")
+    if data.get("type") != "checkout":
+        return await m.answer("Невідомий тип даних із вітрини.")
 
-async def health(request: web.Request):
-    return ok({"status":"ok"})
+    # В твоей витрине передаются items = [{sku,qty}], + city/branch/receiver/phone/username
+    items_in = data.get("items", [])
+    if not items_in:
+        return await m.answer("Кошик порожній.")
 
-# ---------- APP ----------
-def make_app() -> web.Application:
+    # подтянем цены/названия из БД
+    items = []
+    total = 0
+    currency = "UAH"
+    async with aiosqlite.connect(DB_PATH) as db:
+        for it in items_in:
+            sku = str(it.get("sku"))
+            qty = int(it.get("qty", 1))
+            if qty <= 0:
+                continue
+            cur = await db.execute("SELECT title,price,currency FROM products WHERE sku=?", (sku,))
+            row = await cur.fetchone()
+            if not row:
+                continue
+            title, price, curcy = row
+            items.append((sku, title, int(price), qty))
+            total += int(price) * qty
+            currency = curcy or currency
+
+    if not items:
+        return await m.answer("Кошик порожній.")
+
+    city     = (data.get("city") or "").strip()
+    branch   = (data.get("branch") or "").strip()
+    receiver = (data.get("receiver") or "").strip()
+    phone    = (data.get("phone") or "").strip()
+    username = (data.get("username") or "").strip()
+
+    # сохранение заказа
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            "INSERT INTO orders (tg_user_id,tg_username,tg_name,total,currency,city,branch,receiver,phone,status,created_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                m.from_user.id,
+                f"@{m.from_user.username}" if m.from_user.username else None,
+                f"{(m.from_user.first_name or '').strip()} {(m.from_user.last_name or '').strip()}".strip(),
+                total, currency, city, branch, receiver, phone, "new", int(time.time())
+            )
+        )
+        await db.commit()
+        order_id = cur.lastrowid
+        for sku, title, price, qty in items:
+            await db.execute(
+                "INSERT INTO order_items (order_id, product_sku, product_title, price, qty) VALUES (?,?,?,?,?)",
+                (order_id, sku, title, price, qty)
+            )
+        await db.commit()
+
+    # ответ покупателю
+    await m.answer(f"✅ Замовлення #{order_id} створено! Ми звʼяжемося щодо доставки.")
+
+    # уведомление админу (в отдельного бота)
+    items_txt = "\n".join([f"• {t} × {q} = {p*q} {currency}" for _, t, p, q in items])
+    buyer_un = username or (('@'+m.from_user.username) if m.from_user.username else '—')
+    buyer_name = f"{m.from_user.first_name or ''} {m.from_user.last_name or ''}".strip()
+    admin_msg = (
+        f"🆕 <b>Замовлення #{order_id}</b>\n"
+        f"Клієнт: {buyer_name} ({buyer_un})\n"
+        f"UserID: <code>{m.from_user.id}</code>\n\n"
+        f"{items_txt}\n<b>Разом:</b> {total} {currency}\n\n"
+        f"<b>Доставка (НП)</b>\n"
+        f"Місто: {city}\nВідділення: {branch}\n"
+        f"Отримувач: {receiver}\nТелефон: {phone}"
+    )
+    await notify_admin(admin_msg)
+
+# -------------------- APP RUN --------------------
+async def aiohttp_app():
     app = web.Application()
+
     # API
     app.add_routes([
-        web.get("/api/products",  api_products),
-        web.get("/api/catalog",   api_catalog),
-        web.put("/api/products/{sku}", api_upsert_product),
-        web.post("/api/upload",   api_upload),
-        web.get("/health",        health),
+        web.get('/health', api_health),
+        web.get('/api/catalog', api_catalog),
+        web.get('/api/products', api_products),
+        web.put('/api/products/{sku}', api_put_product),
+        web.post('/api/upload', api_upload),
     ])
-    # статика с загруженными
-    app.router.add_static("/uploads/", path=UPLOAD_DIR, show_index=False)
-    # страницы
+
+    # статика: /uploads/*
+    app.router.add_static('/uploads', path=str(UPLOAD_DIR), name='uploads')
+
+    # фронтенд (index.html, admin.html и т.д.)
     app.add_routes([
-        web.get("/",           root_redirect),
-        web.get("/index.html", serve_index),
-        web.get("/admin.html", serve_admin),
+        web.get('/', lambda r: web.HTTPFound('/index.html')),
+        web.get('/{path:.*}', file_handler),
     ])
     return app
 
 async def main():
+    print(f"DB_PATH    = {DB_PATH}")
+    print(f"UPLOAD_DIR = {UPLOAD_DIR}")
+    print(f"WEBAPP_URL = {os.getenv('WEBAPP_URL', '').strip() or f'http://localhost:{PORT}/index.html'}")
+
     await init_db()
-    app = make_app()
-    port = int(os.getenv("PORT", "10000"))  # Render подставляет $PORT
+    await ensure_some_products()
+    await setup_menu_button()
+
+    app = await aiohttp_app()
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, host="0.0.0.0", port=port)
+    site = web.TCPSite(runner, host="0.0.0.0", port=PORT)
     await site.start()
-    print(f"HTTP on :{port}", flush=True)
-    while True:
-        await asyncio.sleep(3600)
+    print(f"HTTP on :{PORT}")
+
+    # параллельно запускаем polling
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
