@@ -4,7 +4,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Адмінка</title>
 <style>
-  body{font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;margin:0 auto;max-width:950px;padding:16px}
+  body{font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;margin:0 auto;max-width:960px;padding:16px}
   h2{margin:0 0 12px}
   .row{display:grid;grid-template-columns:160px 1fr;gap:12px;margin:8px 0}
   input,select,textarea{width:100%;padding:10px;border:1px solid #ddd;border-radius:12px}
@@ -21,151 +21,124 @@
     <button id="btnCreate" class="ghost">+ Створити товар</button>
     <input id="search" placeholder="Пошук по SKU/назві" style="flex:1;border-color:#ccc">
     <button id="btnReload" class="ghost">Оновити список</button>
+    <a href="/index.html#catalog" target="_blank" class="ghost" style="text-decoration:none;padding:10px 14px;border:1px solid #ddd;border-radius:12px">→ Вітрина</a>
   </div>
 
-  <div class="row">
-    <label>Товар</label>
-    <select id="sku"></select>
-  </div>
-
+  <div class="row"><label>Товар</label><select id="sku"></select></div>
   <div class="row"><label>Назва</label><input id="title"></div>
   <div class="row"><label>Опис</label><textarea id="description" rows="3"></textarea></div>
   <div class="row"><label>Ціна (UAH)</label><input id="price" type="number" min="0" step="1"></div>
   <div class="row"><label>Категорія</label><input id="category" placeholder="devises / liquids / cartridges"></div>
-  <div class="row">
-    <label>Статус</label>
+
+  <div class="row"><label>Статус</label>
     <select id="availability">
       <option value="in_stock">В наявності</option>
       <option value="preorder">Предзамовлення</option>
     </select>
   </div>
-  <div class="row">
-    <label>Активний</label>
+
+  <div class="row"><label>Активний</label>
     <select id="is_active">
       <option value="1">Так</option>
       <option value="0">Ні</option>
     </select>
   </div>
 
-  <div class="row">
-    <label>Зображення</label>
+  <div class="row"><label>Зображення</label>
     <div>
       <img id="preview" class="preview" alt="">
-      <div style="margin-top:8px">
-        <input id="file" type="file" accept="image/*" capture="environment">
-      </div>
-      <div class="muted">Можна завантажити з телефону (HEIC конвертується). Зображення буде обрізано в квадрат.</div>
+      <div style="margin-top:8px"><input id="file" type="file" accept="image/*" capture="environment"></div>
+      <div class="muted">HEIC/HEIF конвертується. Зображення автоматично обрізається в квадрат 800×800.</div>
     </div>
   </div>
 
   <div class="row"><label>image_url</label><input id="image_url" readonly></div>
 
-  <div class="row">
-    <label></label>
-    <div style="display:flex;gap:8px">
-      <button id="save">Зберегти</button>
-      <a href="/index.html#catalog" target="_blank" class="muted" style="align-self:center">Перевірити у вітрині →</a>
-    </div>
-  </div>
+  <div class="row"><label></label><button id="save">Зберегти</button></div>
 
 <script>
-  const $ = s=>document.querySelector(s);
-  const S = id=>document.getElementById(id);
-  let list = [];
+const $ = s=>document.querySelector(s);
+const S = id=>document.getElementById(id);
+let list = [];
 
-  async function loadProducts(q=""){
-    const r = await fetch('/api/products'+(q?`?q=${encodeURIComponent(q)}`:''));
-    const j = await r.json();
-    list = j.items || [];
-    const sel = S('sku');
-    sel.innerHTML = list.map(p=>`<option value="${p.sku}">${p.sku} — ${p.title}</option>`).join('');
-    if (list.length) fill(list[0]);
-  }
+async function load(q=""){
+  const r = await fetch('/api/products'+(q?`?q=${encodeURIComponent(q)}`:'')); const j=await r.json();
+  list = j.items || [];
+  const sel = S('sku');
+  sel.innerHTML = list.map(p=>`<option value="${p.sku}">${p.sku} — ${p.title}</option>`).join('');
+  if(list.length) fill(list[0]);
+}
 
-  function fill(p){
-    S('sku').value = p.sku;
-    S('title').value = p.title || '';
-    S('description').value = p.description || '';
-    S('price').value = p.price ?? 0;
-    S('category').value = p.category || '';
-    S('availability').value = p.availability || 'in_stock';
-    S('is_active').value = p.is_active ? 1 : 0;
-    S('image_url').value = p.image_url || '';
-    S('preview').src = p.image_url || '';
-  }
+function fill(p){
+  S('sku').value = p.sku;
+  S('title').value = p.title || '';
+  S('description').value = p.description || '';
+  S('price').value = p.price ?? 0;
+  S('category').value = p.category || '';
+  S('availability').value = p.availability || 'in_stock';
+  S('is_active').value = p.is_active ? 1 : 0;
+  S('image_url').value = p.image_url || '';
+  S('preview').src = p.image_url || '';
+}
 
-  S('sku').addEventListener('change', e=>{
-    const sku = e.target.value;
-    const p = list.find(x=>x.sku===sku);
-    if (p) fill(p);
-  });
+S('sku').addEventListener('change', e=>{
+  const p = list.find(x=>x.sku===e.target.value);
+  if(p) fill(p);
+});
 
-  S('file').addEventListener('change', async (e)=>{
-    const f = e.target.files[0];
-    if (!f) return;
-    const fd = new FormData();
-    fd.append('file', f, f.name);
-    const r = await fetch('/api/upload', { method:'POST', body: fd });
-    const j = await r.json();
-    if (!j.ok){ alert('Помилка завантаження: '+(j.error||'')); return; }
-    S('image_url').value = j.url;
-    S('preview').src = j.url;
-  });
+S('file').addEventListener('change', async (e)=>{
+  const f = e.target.files[0]; if(!f) return;
+  const fd = new FormData(); fd.append('file', f, f.name);
+  const r = await fetch('/api/upload', {method:'POST', body: fd});
+  const j = await r.json();
+  if(!j.ok){ alert('Помилка завантаження: '+(j.error||'')); return; }
+  S('image_url').value = j.url; S('preview').src = j.url;
+});
 
-  S('save').addEventListener('click', async ()=>{
-    const sku = S('sku').value;
-    const body = {
-      title: S('title').value.trim(),
-      description: S('description').value.trim(),
-      price: parseInt(S('price').value||'0',10),
-      category: S('category').value.trim(),
-      availability: S('availability').value,
-      is_active: parseInt(S('is_active').value,10),
-      image_url: S('image_url').value.trim(),
-      currency: "UAH"
-    };
-    const r = await fetch(`/api/products/${encodeURIComponent(sku)}`, {
-      method:'PUT',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(body)
-    });
-    const j = await r.json();
-    if (!j.ok){ alert('Не збережено: '+(j.error||'')); return; }
-    alert('Збережено');
-    // обновим запись в кеше
-    const p = list.find(x=>x.sku===sku);
-    if (p) Object.assign(p, body);
-  });
-
-  $('#btnCreate').onclick = async ()=>{
-    const sku = prompt("Введіть SKU нового товару (латиниця/цифри):");
-    if (!sku) return;
-    const body = { title: sku, price: 0, currency: "UAH", is_active: 0, availability: "in_stock" };
-    const r = await fetch(`/api/products/${encodeURIComponent(sku)}`, {
-      method:'PUT',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(body)
-    });
-    const j = await r.json();
-    if (!j.ok){ alert('Не створено: '+(j.error||'')); return; }
-    await loadProducts($('#search').value.trim());
-    S('sku').value = sku;
-    const p = list.find(x=>x.sku===sku);
-    if (p) fill(p);
+S('save').addEventListener('click', async ()=>{
+  const sku = S('sku').value;
+  const body = {
+    title: S('title').value.trim(),
+    description: S('description').value.trim(),
+    price: parseInt(S('price').value||'0',10),
+    category: S('category').value.trim(),
+    availability: S('availability').value,
+    is_active: parseInt(S('is_active').value,10),
+    image_url: S('image_url').value.trim(),
+    currency: "UAH"
   };
+  const r = await fetch(`/api/products/${encodeURIComponent(sku)}`,{
+    method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+  });
+  const j = await r.json();
+  if(!j.ok){ alert('Не збережено: '+(j.error||'')); return; }
+  alert('Збережено');
+  const p = list.find(x=>x.sku===sku); if(p) Object.assign(p, body);
+});
 
-  $('#btnReload').onclick = ()=> loadProducts($('#search').value.trim());
-  $('#search').addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ $('#btnReload').click(); } });
+$('#btnCreate').onclick = async ()=>{
+  const sku = prompt('SKU нового товару:'); if(!sku) return;
+  const body = { title: sku, price: 0, currency: "UAH", is_active: 0, availability: "in_stock" };
+  const r = await fetch(`/api/products/${encodeURIComponent(sku)}`,{
+    method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+  });
+  const j = await r.json();
+  if(!j.ok){ alert('Не створено: '+(j.error||'')); return; }
+  await load($('#search').value.trim());
+  S('sku').value = sku; const p = list.find(x=>x.sku===sku); if(p) fill(p);
+};
+$('#btnReload').onclick = ()=> load($('#search').value.trim());
+$('#search').addEventListener('keydown', e=>{ if(e.key==='Enter') $('#btnReload').click(); });
 
-  loadProducts();
+load();
 </script>
 </body>
 </html>
 
 
 
-
    
+
 
 
 
