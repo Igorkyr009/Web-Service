@@ -4,82 +4,159 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Адмінка</title>
 <style>
+  /* БАЗА */
   *,*::before,*::after{box-sizing:border-box}
-  body{font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;margin:0 auto;max-width:980px;padding:16px;background:#fafafa;color:#0f172a}
-  h2{margin:0 0 12px}
-  .row{display:grid;grid-template-columns:180px 1fr;gap:12px;margin:10px 0}
-  input,select,textarea{width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:12px;background:#fff}
-  button{padding:10px 14px;border:1px solid #0ea5e9;background:#0ea5e9;color:#fff;border-radius:12px;cursor:pointer}
-  .ghost{background:#fff;color:#0ea5e9}
-  .muted{color:#64748b}
-  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 16px}
-  .card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px}
-  img.preview{width:180px;height:180px;object-fit:cover;border-radius:12px;border:1px solid #e5e7eb;background:#f3f4f6}
-  .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  :root{
+    --bg:#fafafa; --fg:#0f172a; --muted:#64748b; --line:#e5e7eb;
+    --brand:#0ea5e9; --radius:12px; --maxw:980px;
+  }
+  body{margin:0 auto;max-width:var(--maxw);background:var(--bg);color:var(--fg);
+       font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;padding:16px}
+  h1,h2,h3{margin:0 0 12px}
+  a{color:inherit}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 16px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px}
+  button{padding:10px 14px;border-radius:var(--radius);border:1px solid var(--brand);background:var(--brand);color:#fff;cursor:pointer}
+  .ghost{background:#fff;color:var(--brand)}
+  .muted{color:var(--muted)}
+  input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:var(--radius);background:#fff}
+  label{display:block;font-weight:600;margin-bottom:6px}
+
+  /* ГРИД ФОРМЫ: Стойко на декстопе, аккуратно на мобиле */
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .form-col{display:grid;gap:12px}
+  .field{display:grid;gap:6px}
+  .row{display:grid;grid-template-columns:180px 1fr;gap:12px;align-items:center}
+  .row > .field{margin:0}
+  .two-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+  /* Превью */
+  .preview{width:200px;height:200px;border-radius:12px;border:1px solid var(--line);
+           object-fit:cover;background:#f3f4f6}
+
+  @media (max-width:760px){
+    .form-grid{grid-template-columns:1fr}
+    .row{grid-template-columns:1fr}
+  }
 </style>
 <body>
   <h2>Адмінка</h2>
 
+  <!-- Тулбар -->
   <div class="toolbar">
     <button id="btnCreate" class="ghost">+ Створити товар</button>
     <input id="search" placeholder="Пошук по SKU/назві" style="flex:1;border-color:#e5e7eb">
     <button id="btnReload" class="ghost">Оновити</button>
-    <a href="/index.html#%2Fcatalog" target="_blank" class="ghost" style="text-decoration:none;padding:10px 14px;border:1px solid #e5e7eb;border-radius:12px">→ Вітрина</a>
+    <a href="/index.html#%2Fcatalog" target="_blank"
+       class="ghost" style="text-decoration:none;padding:10px 14px;border:1px solid #e5e7eb;border-radius:12px">
+      → Вітрина
+    </a>
   </div>
 
+  <!-- Карточка редактирования -->
   <div class="card">
-    <div class="row"><label>Товар</label><select id="sku"></select></div>
-    <div class="two">
-      <div>
-        <div class="row"><label>Назва</label><input id="title"></div>
-        <div class="row"><label>Опис</label><textarea id="description" rows="4"></textarea></div>
-        <div class="row"><label>Ціна (UAH)</label><input id="price" type="number" min="0" step="1"></div>
-        <div class="row"><label>Категорія</label><input id="category" placeholder="devises / liquids / cartridges"></div>
-        <div class="row"><label>Статус</label>
-          <select id="availability">
-            <option value="in_stock">В наявності</option>
-            <option value="preorder">Предзамовлення</option>
-          </select>
-        </div>
-        <div class="row"><label>Активний</label>
-          <select id="is_active"><option value="1">Так</option><option value="0">Ні</option></select>
-        </div>
+    <!-- выбор товара -->
+    <div class="row">
+      <div class="field">
+        <label for="sku">Товар</label>
       </div>
-      <div>
-        <div class="row"><label>Зображення</label>
-          <div>
-            <img id="preview" class="preview" alt="">
-            <div style="margin-top:8px">
-              <!-- accept image/* и БЕЗ capture → можно выбрать из галереи -->
-              <input id="file" type="file" accept="image/*">
-            </div>
-            <div class="muted" style="margin-top:6px">Зображення автоматично обрізається до квадрату 800×800 (JPEG).</div>
+      <select id="sku"></select>
+    </div>
+
+    <div class="form-grid" style="margin-top:8px">
+      <!-- левая колонка -->
+      <div class="form-col">
+        <div class="field">
+          <label for="title">Назва</label>
+          <input id="title" placeholder="Напр.: Кальян X200">
+        </div>
+
+        <div class="field">
+          <label for="description">Опис</label>
+          <textarea id="description" rows="4" placeholder="Короткий опис товару"></textarea>
+        </div>
+
+        <div class="two-cols">
+          <div class="field">
+            <label for="price">Ціна (UAH)</label>
+            <input id="price" type="number" min="0" step="1" placeholder="0">
+          </div>
+          <div class="field">
+            <label for="category">Категорія</label>
+            <input id="category" placeholder="devises / liquids / cartridges">
           </div>
         </div>
-        <div class="row"><label>image_url</label><input id="image_url" readonly></div>
+
+        <div class="two-cols">
+          <div class="field">
+            <label for="availability">Статус</label>
+            <select id="availability">
+              <option value="in_stock">В наявності</option>
+              <option value="preorder">Предзамовлення</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="is_active">Активний</label>
+            <select id="is_active">
+              <option value="1">Так</option>
+              <option value="0">Ні</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- правая колонка -->
+      <div class="form-col">
+        <div class="field">
+          <label>Зображення</label>
+          <img id="preview" class="preview" alt="">
+        </div>
+        <div class="field">
+          <label for="file">Завантажити з галереї</label>
+          <!-- ВАЖНО: accept=image/* и БЕЗ capture — можно выбрать из галереи/файлів -->
+          <input id="file" type="file" accept="image/*">
+          <div class="muted">Файл буде обрізано у квадрат 800×800 (JPEG) на сервері автоматично.</div>
+        </div>
+        <div class="field">
+          <label for="image_url">image_url</label>
+          <input id="image_url" readonly>
+        </div>
       </div>
     </div>
-    <div class="row"><label></label><button id="save">Зберегти</button></div>
+
+    <div class="row" style="margin-top:12px">
+      <div></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button id="save">Зберегти</button>
+      </div>
+    </div>
   </div>
 
 <script>
-const $ = s=>document.querySelector(s);
-const S = id=>document.getElementById(id);
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const S = id => document.getElementById(id);
 let LIST = [];
 
-async function load(q=""){
-  const r = await fetch('/api/products'+(q?`?q=${encodeURIComponent(q)}`:'')); const j=await r.json();
-  LIST = j.items || [];
-  const sel = S('sku');
-  sel.innerHTML = LIST.map(p=>`<option value="${p.sku}">${p.sku} — ${p.title}</option>`).join('');
-  if(LIST.length) fill(LIST[0]);
-  sel.onchange = ()=>{
-    const p = LIST.find(x=>x.sku===sel.value);
-    if(p) fill(p);
-  }
+/* аккуратная сортировка: по категории, затем по названию */
+function sortProducts(arr){
+  return arr.slice().sort((a,b)=> (a.category||'').localeCompare(b.category||'') || (a.title||'').localeCompare(b.title||''));
 }
 
-function fill(p){
+/* заполнение селекта товаров */
+function fillSelect(){
+  const sel = S('sku');
+  sel.innerHTML = LIST.map(p => `<option value="${p.sku}">${p.sku} — ${escapeHtml(p.title||'')}</option>`).join('');
+}
+
+/* безопасное отображение строк в html */
+function escapeHtml(str){
+  return String(str||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+}
+
+/* отрисовать выбранный товар в форму */
+function fillForm(p){
+  if(!p){ return; }
   S('sku').value = p.sku;
   S('title').value = p.title || '';
   S('description').value = p.description || '';
@@ -88,20 +165,29 @@ function fill(p){
   S('availability').value = p.availability || 'in_stock';
   S('is_active').value = p.is_active ? 1 : 0;
   S('image_url').value = p.image_url || '';
-  S('preview').src = p.image_url || '';
+  S('preview').src = p.image_url || 'https://via.placeholder.com/800?text=No+Image';
 }
 
-S('file').addEventListener('change', async (e)=>{
-  const f = e.target.files[0]; if(!f) return;
-  const fd = new FormData(); fd.append('file', f, f.name);
+/* ---------- API ---------- */
+async function loadProducts(q=""){
+  const r = await fetch('/api/products'+(q?`?q=${encodeURIComponent(q)}`:''));
+  const j = await r.json();
+  LIST = sortProducts(j.items || []);
+  fillSelect();
+  if(LIST.length) fillForm(LIST[0]);
+}
+
+async function uploadFile(file){
+  const fd = new FormData(); fd.append('file', file, file.name);
   const r = await fetch('/api/upload', {method:'POST', body: fd});
   const j = await r.json();
-  if(!j.ok){ alert('Помилка завантаження: '+(j.error||'')); return; }
-  S('image_url').value = j.url; S('preview').src = j.url;
-});
+  if(!j.ok) throw new Error(j.error || 'upload failed');
+  return j.url; // /uploads/xxx.jpg
+}
 
-S('save').addEventListener('click', async ()=>{
-  const sku = S('sku').value;
+async function saveProduct(){
+  const sku = S('sku').value.trim();
+  if(!sku){ alert('SKU порожній'); return; }
   const body = {
     title: S('title').value.trim(),
     description: S('description').value.trim(),
@@ -112,38 +198,73 @@ S('save').addEventListener('click', async ()=>{
     image_url: S('image_url').value.trim(),
     currency: "UAH"
   };
-  const r = await fetch(`/api/products/${encodeURIComponent(sku)}`,{
+  const r = await fetch(`/api/products/${encodeURIComponent(sku)}`, {
     method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
   });
   const j = await r.json();
   if(!j.ok){ alert('Не збережено: '+(j.error||'')); return; }
+  // локально обновим список, чтобы форма не "плыла"
+  const idx = LIST.findIndex(x=>x.sku===sku);
+  if(idx>=0) LIST[idx] = {...LIST[idx], ...body}; else LIST.push({sku, ...body});
+  LIST = sortProducts(LIST);
+  fillSelect();
+  // выбрать текущий снова
+  S('sku').value = sku;
   alert('Збережено');
-  // локально обновим список
-  const p = LIST.find(x=>x.sku===sku); if(p) Object.assign(p, body);
+}
+
+/* ---------- события ---------- */
+S('sku').addEventListener('change', ()=>{
+  const sku = S('sku').value;
+  const p = LIST.find(x=>x.sku===sku);
+  fillForm(p);
 });
 
+S('file').addEventListener('change', async (e)=>{
+  const f = e.target.files[0]; if(!f) return;
+  try{
+    const url = await uploadFile(f);
+    S('image_url').value = url;
+    S('preview').src = url;
+  }catch(err){
+    alert('Помилка завантаження: '+err.message);
+  }finally{
+    e.target.value = '';
+  }
+});
+
+S('save').addEventListener('click', saveProduct);
+
+$('#btnReload').onclick = ()=> loadProducts($('#search').value.trim());
+$('#search').addEventListener('keydown', e=>{ if(e.key==='Enter') $('#btnReload').click(); });
+
 $('#btnCreate').onclick = async ()=>{
-  const sku = prompt('SKU нового товару:'); if(!sku) return;
-  const body = { title: sku, price: 0, currency: "UAH", is_active: 0, availability: "in_stock" };
-  const r = await fetch(`/api/products/${encodeURIComponent(sku)}`,{
-    method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+  const sku = prompt('SKU нового товару:');
+  if(!sku) return;
+  // создаём черновик (неактивный)
+  const r = await fetch(`/api/products/${encodeURIComponent(sku)}`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({title: sku, price: 0, currency: "UAH", is_active: 0, availability: "in_stock"})
   });
   const j = await r.json();
   if(!j.ok){ alert('Не створено: '+(j.error||'')); return; }
-  await load($('#search').value.trim());
-  S('sku').value = sku; const p = LIST.find(x=>x.sku===sku); if(p) fill(p);
+  await loadProducts($('#search').value.trim());
+  S('sku').value = sku;
+  const p = LIST.find(x=>x.sku===sku);
+  fillForm(p);
 };
-$('#btnReload').onclick = ()=> load($('#search').value.trim());
-$('#search').addEventListener('keydown', e=>{ if(e.key==='Enter') $('#btnReload').click(); });
 
-load();
+/* старт */
+loadProducts();
 </script>
 </body>
 </html>
 
 
 
+
    
+
 
 
 
