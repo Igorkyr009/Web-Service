@@ -1,42 +1,47 @@
 <!doctype html>
 <html lang="uk">
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Магазин</title>
 <style>
-  /* Базовые стили, чтобы ничего не «ехало» */
   *,*::before,*::after{box-sizing:border-box}
   body{font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;margin:0 auto;max-width:980px;padding:16px;background:#fafafa;color:#0f172a}
   h2,h3,h4{margin:0 0 10px}
-  a{color:inherit}
+  a{color:inherit;text-decoration:none}
   header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px}
   .actions{display:flex;gap:8px}
   button{padding:10px 12px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;cursor:pointer}
   .primary{background:#0ea5e9;border-color:#0ea5e9;color:#fff}
   .muted{color:#64748b}
   .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px}
-  .tab{padding:8px 12px;border:1px solid #e5e7eb;border-radius:999px;text-decoration:none}
+  .tab{padding:8px 12px;border:1px solid #e5e7eb;border-radius:999px}
   .tab.active{background:#111827;border-color:#111827;color:#fff}
   #root{min-height:50vh}
 
-  /* Каталог */
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
   .card{border:1px solid #e5e7eb;border-radius:14px;background:#fff;padding:12px}
   .card img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:10px;background:#f3f4f6}
   .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
   .back{display:inline-block;margin:8px 0}
 
-  /* Форма оформления */
   .form{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .form .full{grid-column:1 / -1}
   input,textarea{width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:12px;background:#fff}
 
-  /* Модал корзины */
   .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.35);z-index:50}
   .modal.show{display:flex}
   .sheet{width:min(92vw,520px);max-height:80vh;overflow:auto;background:#fff;border-radius:16px;border:1px solid #e5e7eb;padding:14px}
   .list{display:grid;gap:8px;margin:8px 0}
   .empty{padding:24px;border:1px dashed #e5e7eb;background:#fff;border-radius:14px;text-align:center;color:#64748b}
+
+  /* Оверлей согласия (18+ и правила) */
+  .gate{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:16px;z-index:100}
+  .gate.show{display:flex}
+  .gate .box{width:min(94vw,640px);background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:16px}
+  .checks{display:grid;gap:8px;margin:12px 0}
+  .checks label{display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+  .gate .rowend{display:flex;justify-content:flex-end;gap:8px}
+  @media (max-width:760px){ .form{grid-template-columns:1fr} }
 </style>
 <body>
   <header>
@@ -47,7 +52,6 @@
     </div>
   </header>
 
-  <!-- Категории -->
   <nav class="tabs" id="tabs">
     <a class="tab" data-cat=""            href="#/catalog">Всі</a>
     <a class="tab" data-cat="devises"     href="#/catalog?cat=devises">Девайси</a>
@@ -57,7 +61,7 @@
 
   <div id="root"></div>
 
-  <!-- Модал корзины -->
+  <!-- Корзина -->
   <div class="modal" id="cartModal" role="dialog" aria-modal="true">
     <div class="sheet">
       <div class="row">
@@ -72,35 +76,63 @@
     </div>
   </div>
 
+  <!-- Оверлей согласия -->
+  <div class="gate" id="gate">
+    <div class="box">
+      <h3>Підтвердження</h3>
+      <div class="muted">Щоб продовжити, підтвердьте наступне:</div>
+      <div class="checks">
+        <label><input id="ch18" type="checkbox">Мені виповнилося 18 років</label>
+        <label><input id="chTerms" type="checkbox">Я ознайомився та приймаю правила магазину</label>
+      </div>
+      <div class="rowend">
+        <button id="gateCancel" class="muted">Скасувати</button>
+        <button id="gateOk" class="primary" disabled>Підтвердити</button>
+      </div>
+    </div>
+  </div>
+
 <script>
-/* ------------ state & utils ------------ */
+/* ===== state & utils ===== */
 const $  = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const fmt = (p,c)=>`${p} ${c||'UAH'}`;
-const LS = "tgshop.cart.v1";
+const LS_CART   = "tgshop.cart.v1";
+const LS_CONSENT= "tgshop.consent.v1";
 
-let CART = new Map();     // sku -> qty
-let DATA = [];            // cache catalog
-let CAT  = "";            // current category
+let CART = new Map(); // sku->qty
+let DATA = [];
+let CAT  = "";
 
-function loadCart(){ try{ const raw = localStorage.getItem(LS); if(raw) CART = new Map(JSON.parse(raw)); }catch{} }
-function saveCart(){ try{ localStorage.setItem(LS, JSON.stringify([...CART.entries()])); }catch{} }
+/* ===== consent (18+ & rules) ===== */
+function needConsent(){ try{ return localStorage.getItem(LS_CONSENT)!=='1'; }catch{ return true; } }
+function showGate(){ $('#gate').classList.add('show'); }
+function hideGate(){ $('#gate').classList.remove('show'); }
+function setConsent(){ try{ localStorage.setItem(LS_CONSENT,'1'); }catch{} }
+
+$('#gateCancel').onclick = ()=> history.length>1 ? history.back() : alert('Доступ заборонено без підтвердження.');
+function updateGateBtn(){
+  $('#gateOk').disabled = !($('#ch18').checked && $('#chTerms').checked);
+}
+$('#ch18').onchange = updateGateBtn;
+$('#chTerms').onchange = updateGateBtn;
+$('#gateOk').onclick = ()=>{ setConsent(); hideGate(); render(); };
+
+/* ===== cart ===== */
+function loadCart(){ try{ const raw = localStorage.getItem(LS_CART); if(raw) CART = new Map(JSON.parse(raw)); }catch{} }
+function saveCart(){ try{ localStorage.setItem(LS_CART, JSON.stringify([...CART.entries()])); }catch{} }
 function cartCount(){ let n=0; for(const q of CART.values()) n+=q; return n; }
 function updCount(){ $('#cnt').textContent = cartCount(); }
 function inTg(){ try{ return typeof Telegram!=='undefined' && Telegram.WebApp && Telegram.WebApp.sendData; }catch{ return false; }}
 
-/* ------------ data ------------ */
+/* ===== data ===== */
 async function fetchCatalog(){
-  const r = await fetch('/api/catalog');
-  const j = await r.json();
+  const r = await fetch('/api/catalog'); const j = await r.json();
   DATA = (j.items||[]).slice().sort((a,b)=> (a.category||'').localeCompare(b.category||'') || a.title.localeCompare(b.title));
 }
 
-/* ------------ renderers ------------ */
-function setTabs(cat){
-  CAT = cat || "";
-  $$('#tabs .tab').forEach(t=> t.classList.toggle('active', (t.dataset.cat||'')===CAT));
-}
+/* ===== render helpers ===== */
+function setTabs(cat){ CAT = cat || ""; $$('#tabs .tab').forEach(t=> t.classList.toggle('active', (t.dataset.cat||'')===CAT)); }
 
 function renderCatalog(cat=""){
   setTabs(cat);
@@ -124,12 +156,10 @@ function renderCatalog(cat=""){
           <button data-act="add"  data-sku="${p.sku}">Додати</button>
           <button data-act="open" data-sku="${p.sku}" class="primary">Детальніше</button>
         </div>
-      </div>
-    `;
+      </div>`;
     grid.appendChild(el);
   });
 
-  // делегирование
   grid.onclick = (e)=>{
     const b = e.target.closest('button'); if(!b) return;
     const sku = b.dataset.sku;
@@ -168,7 +198,6 @@ function renderProduct(sku){
         </div>
       </div>
     </div>`;
-
   let q=1; const $qty = $('#qty');
   $('#minus').onclick = ()=>{ if(q>1){ q--; $qty.textContent=q; } };
   $('#plus').onclick  = ()=>{ q++; $qty.textContent=q; };
@@ -182,6 +211,13 @@ function renderCheckout(){
   });
   const total = items.reduce((s,i)=> s + i.price*i.qty, 0);
   const root = $('#root');
+
+  // попробуем предзаполнить ник из Telegram
+  let preUser = '';
+  try{
+    const u = Telegram?.WebApp?.initDataUnsafe?.user;
+    if(u?.username) preUser = '@'+u.username;
+  }catch{}
 
   root.innerHTML = `
     <a class="back" href="#/catalog${CAT?`?cat=${CAT}`:''}">← Назад</a>
@@ -205,7 +241,8 @@ function renderCheckout(){
         <div><label>Відділення НП<input id="branch" placeholder="№25"></label></div>
         <div class="full"><label>ПІБ отримувача<input id="receiver" placeholder="Імʼя Прізвище"></label></div>
         <div><label>Телефон<input id="phone" placeholder="+380..."></label></div>
-        <div><label>Нік у Telegram (опц.)<input id="username" placeholder="@nickname"></label></div>
+        <div class="full"><label>Нік у Telegram <span class="muted">(обовʼязково)</span>
+          <input id="username" placeholder="@nickname" value="${preUser}"></label></div>
       </div>
 
       <div class="row" style="margin-top:12px">
@@ -225,19 +262,39 @@ function renderCheckout(){
           phone=$('#phone').value.trim(),
           username=$('#username').value.trim();
     if(!city||!branch||!receiver||!phone){ alert('Заповніть усі поля'); return; }
+    if(!/^@[\w\d_]{3,}$/.test(username)){ alert('Вкажіть нік у Telegram (починається з @)'); return; }
+
     const payload = {type:'checkout',items:items.map(i=>({sku:i.sku,qty:i.qty})),
                      city,branch,receiver,phone,username};
+
+    // показываем экран успеха сразу
+    renderSuccess();
     if(inTg()){
-      Telegram.WebApp.ready();
-      Telegram.WebApp.sendData(JSON.stringify(payload));
-      Telegram.WebApp.close();
+      try{ Telegram.WebApp.ready(); }catch{}
+      try{ Telegram.WebApp.sendData(JSON.stringify(payload)); }catch(e){ console.error(e); }
+      // закрыть через 1.2с
+      setTimeout(()=>{ try{ Telegram.WebApp.close(); }catch{} }, 1200);
     } else {
-      alert('Відкрий сторінку з Telegram, щоб відправити замовлення.\n\n'+JSON.stringify(payload,null,2));
+      alert('Щоб надіслати замовлення продавцю, відкрий сторінку з Telegram.');
     }
+    // корзину очищаем локально после попытки отправки
+    CART.clear(); saveCart(); updCount();
   };
 }
 
-/* ------------ simple router ------------ */
+function renderSuccess(){
+  $('#root').innerHTML = `
+    <div class="card" style="text-align:center">
+      <h3>✅ Замовлення надіслано</h3>
+      <div class="muted">Дякуємо! Менеджер звʼяжеться з вами у Telegram найближчим часом.</div>
+      <div style="margin-top:12px">
+        <a class="back" href="#/catalog${CAT?`?cat=${CAT}`:''}">← Повернутись до каталогу</a>
+      </div>
+    </div>
+  `;
+}
+
+/* ===== simple router ===== */
 function parseHash(){
   const h = location.hash || '#/catalog';
   if(h.startsWith('#/catalog')){
@@ -246,22 +303,30 @@ function parseHash(){
   }
   if(h.startsWith('#/product/')) return {view:'product', sku: decodeURIComponent(h.split('/')[2]||'')};
   if(h==='#/checkout') return {view:'checkout'};
+  if(h==='#/success')  return {view:'success'};
   return {view:'catalog', cat:''};
 }
 
 async function render(){
+  // если нет согласия — показать гейт и не рисовать витрину
+  if(needConsent()){ showGate(); return; }
+
   loadCart(); updCount();
   if(DATA.length===0) await fetchCatalog();
   const r = parseHash();
   if(r.view==='catalog')  renderCatalog(r.cat);
   if(r.view==='product')  renderProduct(r.sku);
   if(r.view==='checkout') renderCheckout();
+  if(r.view==='success')  renderSuccess();
 }
 
 window.addEventListener('hashchange', render);
-window.addEventListener('DOMContentLoaded', render);
+window.addEventListener('DOMContentLoaded', ()=>{
+  if(needConsent()) showGate();
+  render();
+});
 
-/* ------------ cart modal ------------ */
+/* ===== cart modal ===== */
 function openCart(){
   const items = [...CART.entries()].map(([sku,qty])=>{
     const p = DATA.find(x=>x.sku===sku);
@@ -278,8 +343,7 @@ function openCart(){
             <div>${i.title} <span class="muted">× ${i.qty}</span></div>
             <div><b>${fmt(i.price*i.qty,i.currency)}</b></div>
           </div>`).join('')}
-      </div>
-    `;
+      </div>`;
   }
   $('#cartModal').classList.add('show');
 }
@@ -289,7 +353,7 @@ $('#goCheckout').onclick = ()=>{ $('#cartModal').classList.remove('show'); locat
 $('#clearCart').onclick = ()=>{ CART.clear(); saveCart(); updCount(); openCart(); };
 $('#cartModal').addEventListener('click', (e)=>{ if(e.target.id==='cartModal') $('#cartModal').classList.remove('show'); });
 
-/* ------------ header actions ------------ */
+/* ===== header actions ===== */
 $('#btnCheckout').onclick = ()=>{ location.hash = '#/checkout'; };
 </script>
 </body>
