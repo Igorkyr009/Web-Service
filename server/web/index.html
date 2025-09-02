@@ -78,6 +78,45 @@
   .age-box{background:#fff;padding:20px;max-width:400px;border-radius:12px;text-align:center}
   .age-box h3{margin:0 0 12px}
   .age-box button{margin-top:12px}
+  .sheet .media{
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
+  background:#f7f7f8;
+  border-radius:12px;
+  min-height:320px;
+  padding-top:16px;
+  padding-bottom:8px; /* безопасный низ */
+}
+// возрастной контроль
+if(localStorage.getItem('age_ok')!=='1'){
+  showAgeModal();
+}
+
+// запрет на действия, если не подтвердил возраст
+function requireAge() {
+  if(localStorage.getItem('age_ok')!=='1'){
+    showAgeModal();
+    return false;
+  }
+  return true;
+}
+
+.sheet .media img{
+  display:block;
+  width:min(520px,100%);
+  height:auto;
+  max-height:70vh;
+  object-fit:contain;
+  border-radius:12px;
+}
+
+.sheet .content{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  padding-top:6px; /* отступ, чтобы заголовок не наезжал */
+}
 
   /* --- Drawer Checkout --- */
   .drawer{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;padding:0;z-index:60}
@@ -233,6 +272,12 @@ function goShop(cat){
   });
   hide($('#screenHome')); show($('#screenShop')); loadCatalog();
 }
+  document.querySelectorAll('[data-go]').forEach(b=>{
+  b.onclick=()=>{
+    if(!requireAge()) return; // блокируем до подтверждения
+    goShop(b.getAttribute('data-go'));
+  };
+});
 
 function saveCart(){localStorage.setItem('cart', JSON.stringify([...state.cart.entries()]));}
 function loadCart(){try{state.cart=new Map(JSON.parse(localStorage.getItem('cart')||'[]'));}catch(e){state.cart=new Map();}}
@@ -327,6 +372,12 @@ function openCheckout(){
   $("#fTG").value = tgUsername() ? "@"+tgUsername() : ($("#fTG").value||'');
   $("#checkout").classList.add('open');
 }
+function openCheckout(){
+  if(!requireAge()) return;
+  if(state.cart.size===0){ alert('Кошик порожній'); return; }
+  ...
+}
+
 function closeCheckout(){ $("#checkout").classList.remove('open'); }
 async function submitCheckout(){
   const err=$("#chkErr"); err.style.display='none'; err.textContent='';
@@ -410,6 +461,7 @@ window.addEventListener('DOMContentLoaded',()=>{
 </script>
 </body>
 </html>
+
 
 
 
