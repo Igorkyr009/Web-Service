@@ -4,15 +4,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Магазин</title>
 <style>
-  :root{
-    --bg:#0ea5e9;           /* основной цвет кнопки */
-    --fg:#fff;              /* текст на кнопке       */
-    --muted:#667085;
-    --border:#e5e7eb;
-    --accent:#0ea5e9;
-    --danger:#ef4444;
-  }
-  /* Telegram тема -> подхватим цвета, если есть */
+  :root{--bg:#0ea5e9;--fg:#fff;--muted:#667085;--border:#e5e7eb;--danger:#ef4444}
   body{font-family:system-ui,Segoe UI,Roboto,sans-serif;margin:0 auto;max-width:980px;padding:16px;background:#fff;color:#111}
   header{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
   h2{margin:0}
@@ -20,8 +12,7 @@
   .primary{background:var(--bg);color:var(--fg);border-color:var(--bg)}
   .muted{color:var(--muted);font-size:12px}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin-top:16px}
-  .card{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:#fff;cursor:pointer;display:flex;flex-direction:column;transition:transform .06s ease}
-  .card:active{transform:scale(.99)}
+  .card{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:#fff;cursor:pointer;display:flex;flex-direction:column}
   .card img{width:100%;aspect-ratio:1/1;object-fit:cover;background:#f5f5f5;display:block}
   .card .body{padding:10px}
   .title{font-weight:700;margin:0 0 6px}
@@ -29,38 +20,30 @@
   .price{font-weight:700}
   .tabs{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
 
-  /* cart */
-  .cart{position:fixed;right:16px;bottom:16px;left:16px;max-width:980px;margin-inline:auto;
-        border:1px solid var(--border);background:#fff;border-radius:14px;padding:12px;box-shadow:0 10px 30px rgba(0,0,0,.08);display:none;z-index:40}
+  .cart{position:fixed;right:16px;bottom:16px;left:16px;max-width:980px;margin-inline:auto;border:1px solid var(--border);background:#fff;border-radius:14px;padding:12px;box-shadow:0 10px 30px rgba(0,0,0,.08);display:none;z-index:40}
   .cart h4{margin:0 0 10px}
   .cart-item{display:grid;grid-template-columns:56px 1fr auto auto;gap:10px;align-items:center;padding:8px 0;border-top:1px dashed #eee}
   .cart-item:first-child{border-top:none}
   .thumb{width:56px;height:56px;border-radius:8px;object-fit:cover;background:#f5f5f5}
   .qty{display:flex;align-items:center;gap:6px}
   .qty button{width:28px;height:28px;padding:0}
-
   .cart-footer{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
 
-  /* PRODUCT SHEET (страница товара) */
+  /* модал товара */
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:0;z-index:50}
   .modal.open{display:flex}
   .sheet{background:#fff;border-radius:18px;max-width:860px;width:100%;border:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:20px;max-height:92vh;overflow:auto}
   .sheet .media{display:flex;align-items:center;justify-content:center;background:#f7f7f8;border-radius:12px;min-height:320px}
-  .sheet .media img{width:min(520px,100%);max-height:70vh;object-fit:cover;border-radius:12px}
+  .sheet .media img{width:min(520px,100%);max-height:70vh;object-fit:contain;border-radius:12px} /* << не режем */
   .sheet .content{display:flex;flex-direction:column;gap:10px}
   .badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid var(--border);background:#fafafa}
   .badge.preorder{border-color:#f59e0b;background:#fffbeb}
-  .badge.hidden{border-color:#ddd;background:#f6f6f6;color:#999}
   .desc{color:#444;line-height:1.5}
-  .desc.clamp{display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden}
-  .muted-link{font-size:12px;color:var(--accent);text-decoration:underline;cursor:pointer}
   .qtybar{display:flex;align-items:center;gap:10px;margin:8px 0}
   .qtybar input{width:64px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;text-align:center;font-weight:700}
   .sheet .actions{position:sticky;bottom:-1px;display:flex;gap:10px;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);background:#fff}
   .total{font-weight:800}
-  .danger{color:var(--danger)}
   .close-x{position:absolute;right:14px;top:10px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:6px 10px;font-weight:700;z-index:10}
-
   @media (max-width: 860px){
     body{padding:10px}
     .sheet{border-radius:0;max-width:none;width:100%;height:100vh;max-height:none;grid-template-columns:1fr;gap:12px;padding:14px}
@@ -69,6 +52,16 @@
     .close-x{right:10px;top:10px}
   }
   body.no-scroll{overflow:hidden}
+
+  /* checkout форма */
+  .drawer{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;padding:0;z-index:60}
+  .drawer.open{display:flex}
+  .panel{background:#fff;border-radius:18px 18px 0 0;max-width:860px;width:100%;border:1px solid var(--border);padding:16px}
+  .g{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  input{padding:10px;border:1px solid var(--border);border-radius:10px}
+  label{font-size:12px;color:#333}
+  .error{color:var(--danger);font-size:12px}
 </style>
 <body>
   <header>
@@ -99,34 +92,25 @@
     </div>
   </div>
 
-  <!-- PRODUCT SHEET -->
+  <!-- product modal -->
   <div id="productModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="pTitle">
     <button class="close-x" id="btnClose">✕</button>
     <div class="sheet" onclick="event.stopPropagation()">
       <div class="media"><img id="pImg" src="" alt="Фото товару"></div>
       <div class="content">
-        <div class="row" style="align-items:center;gap:10px;justify-content:flex-start">
-          <span id="pBadge" class="badge">В наявності</span>
-        </div>
+        <span id="pBadge" class="badge">В наявності</span>
         <h3 id="pTitle" style="margin:4px 0 0"></h3>
-        <div id="pCat" class="muted" style="font-size:12px"></div>
-
-        <div class="row" style="margin-top:6px">
-          <div class="price" id="pPrice"></div>
-        </div>
-
-        <div id="pDesc" class="desc clamp"></div>
-        <div id="btnMore" class="muted-link" style="display:none">Показати більше</div>
-
+        <div class="muted" id="pCat" style="font-size:12px"></div>
+        <div class="row" style="margin-top:6px"><div class="price" id="pPrice"></div></div>
+        <div id="pDesc" class="desc"></div>
         <div class="qtybar">
           <button id="btnMinus" aria-label="Зменшити">−</button>
           <input id="pQty" type="number" min="1" value="1" inputmode="numeric">
           <button id="btnPlus" aria-label="Збільшити">+</button>
         </div>
-
         <div class="actions">
           <div style="flex:1">
-            <div class="muted">Сума до сплати</div>
+            <div class="muted">Сума</div>
             <div class="total" id="pTotal">0 UAH</div>
           </div>
           <button id="btnAdd" class="primary" style="min-width:180px">Додати до кошика</button>
@@ -135,40 +119,59 @@
     </div>
   </div>
 
-  <!-- age gate -->
-  <div id="ageGate" class="modal"><div class="sheet" style="max-width:520px;grid-template-columns:1fr">
-    <h3>Підтвердження віку</h3>
-    <div style="display:flex;flex-direction:column;gap:10px;margin:10px 0 16px;font-size:14px">
-      <label><input type="checkbox" id="chk18"> Мені 18 років і більше</label>
-      <label><input type="checkbox" id="chkRules"> Погоджуюсь з <a href="/web/rules.html" target="_blank">правилами магазину</a></label>
+  <!-- checkout форма -->
+  <div id="checkout" class="drawer">
+    <div class="panel">
+      <h3 style="margin:0 0 8px">Оформлення</h3>
+      <div class="g">
+        <div>
+          <label>Місто</label>
+          <input id="fCity" placeholder="Київ">
+        </div>
+        <div>
+          <label>Відділення Нової пошти</label>
+          <input id="fBranch" placeholder="Відділення №1">
+        </div>
+      </div>
+      <div class="g">
+        <div>
+          <label>ПІБ отримувача</label>
+          <input id="fRecv" placeholder="Прізвище Імʼя По батькові">
+        </div>
+        <div>
+          <label>Телефон</label>
+          <input id="fPhone" placeholder="+380..." inputmode="tel">
+        </div>
+      </div>
+      <div class="g3">
+        <div>
+          <label>Telegram username</label>
+          <input id="fTG" placeholder="@username">
+        </div>
+        <div>
+          <label>Імʼя</label>
+          <input id="fFirst" placeholder="Імʼя">
+        </div>
+        <div>
+          <label>Прізвище</label>
+          <input id="fLast" placeholder="Прізвище">
+        </div>
+      </div>
+      <div id="chkErr" class="error" style="display:none;margin-top:6px"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+        <button id="btnChkClose">Скасувати</button>
+        <button id="btnChkSubmit" class="primary">Підтвердити замовлення</button>
+      </div>
     </div>
-    <button id="btnAgeOk" class="primary" disabled>Продовжити</button>
-  </div></div>
+  </div>
 
 <script>
-/* ---------- helpers ---------- */
 const $ = s => document.querySelector(s);
 const nf = new Intl.NumberFormat('uk-UA');
 const money = (v,c='UAH') => `${nf.format(Number(v||0))} ${c}`;
 const state = { items:[], cart:new Map(), current:null, qty:1, category:'devices' };
-
-/* Telegram theme -> в CSS переменные */
-(function syncTelegramTheme(){
-  try{
-    if (window.Telegram && Telegram.WebApp && Telegram.WebApp.themeParams){
-      const tp = Telegram.WebApp.themeParams;
-      if (tp.button_color) document.documentElement.style.setProperty('--bg', tp.button_color);
-      if (tp.button_text_color) document.documentElement.style.setProperty('--fg', tp.button_text_color);
-      if (tp.hint_color) document.documentElement.style.setProperty('--muted', tp.hint_color);
-      Telegram.WebApp.expand();
-    }
-  }catch(e){}
-})();
-
-/* картинка: позволяем относительные URL (например, /uploads/..) */
 const imageOr = (u) => u ? u : 'https://picsum.photos/600';
 
-/* cart persistence */
 function saveCart(){ try{
   const plain = [...state.cart.entries()].map(([k,v])=>[k,{item:v.item,qty:v.qty}]);
   localStorage.setItem('cart', JSON.stringify(plain));
@@ -178,36 +181,34 @@ function loadCart(){ try{
   state.cart = new Map(plain);
 }catch(e){ state.cart = new Map(); } }
 
-/* ---------- grid ---------- */
+/* grid */
 function renderGrid(){
   const g = $("#grid"); g.innerHTML = "";
-  state.items
-    .filter(x=>x.is_active && (x.category||'devices')===state.category)
-    .forEach(item=>{
-      const el = document.createElement('div');
-      el.className = 'card';
-      el.innerHTML = `
-        <img src="${imageOr(item.image_url)}" alt="">
-        <div class="body">
-          <div class="title">${item.title}</div>
-          <div class="row">
-            <div class="price">${money(item.price,item.currency)}</div>
-            <button class="primary" data-view>Переглянути</button>
-          </div>
-        </div>`;
-      el.querySelector('[data-view]').onclick = (e)=>{ e.stopPropagation(); openProduct(item); };
-      el.onclick = ()=> openProduct(item);
-      g.appendChild(el);
-    });
+  state.items.filter(x=>x.is_active && (x.category||'devices')===state.category).forEach(item=>{
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.innerHTML = `
+      <img src="${imageOr(item.image_url)}" alt="">
+      <div class="body">
+        <div class="title">${item.title}</div>
+        <div class="row">
+          <div class="price">${money(item.price,item.currency)}</div>
+          <button class="primary">Переглянути</button>
+        </div>
+      </div>`;
+    el.querySelector('button').onclick = (e)=>{ e.stopPropagation(); openProduct(item); };
+    el.onclick = ()=> openProduct(item);
+    g.appendChild(el);
+  });
 }
 
-/* ---------- cart ---------- */
+/* cart */
 function rerenderCart(){
   $("#cartCount").textContent = [...state.cart.values()].reduce((s,v)=>s+v.qty,0);
   const list = $("#cartList"); list.innerHTML = "";
-  let total = 0; let cur = 'UAH';
+  let total = 0; let cur='UAH';
   for (const {item, qty} of state.cart.values()){
-    total += Number(item.price) * qty; cur = item.currency || cur;
+    total += item.price * qty; cur = item.currency || cur;
     const row = document.createElement('div');
     row.className = 'cart-item';
     row.innerHTML = `
@@ -215,11 +216,11 @@ function rerenderCart(){
       <div><div style="font-weight:700">${item.title}</div>
            <div class="muted">${money(item.price,item.currency)}</div></div>
       <div class="qty">
-        <button data-act="dec" aria-label="Зменшити">−</button>
+        <button data-act="dec">−</button>
         <b>${qty}</b>
-        <button data-act="inc" aria-label="Збільшити">+</button>
+        <button data-act="inc">+</button>
       </div>
-      <button data-act="del" aria-label="Видалити">✕</button>`;
+      <button data-act="del">✕</button>`;
     row.querySelector('[data-act="inc"]').onclick=()=>{state.cart.get(item.sku).qty++; saveCart(); rerenderCart();};
     row.querySelector('[data-act="dec"]').onclick=()=>{const v=state.cart.get(item.sku); v.qty=Math.max(1,v.qty-1); saveCart(); rerenderCart();};
     row.querySelector('[data-act="del"]').onclick=()=>{state.cart.delete(item.sku); saveCart(); rerenderCart();};
@@ -228,151 +229,117 @@ function rerenderCart(){
   $("#cartTotal").textContent = money(total, cur);
 }
 
-/* ---------- product page (sheet) ---------- */
+/* product modal */
 function setBadge(item){
-  const b = $("#pBadge");
-  b.className = 'badge';
-  if (!item.is_active){ b.classList.add('hidden'); b.textContent='Прихований'; return; }
-  if ((item.stock_status||'in_stock')==='preorder'){ b.classList.add('preorder'); b.textContent='Попереднє замовлення'; return; }
-  b.textContent='В наявності';
+  const b = $("#pBadge"); b.className='badge';
+  if ((item.stock_status||'in_stock')==='preorder'){ b.classList.add('preorder'); b.textContent='Попереднє замовлення'; }
+  else { b.textContent='В наявності'; }
 }
-
-function updateTotal(){
-  const item = state.current; if (!item) return;
-  const qty = state.qty;
-  $("#pTotal").textContent = money(Number(item.price)*qty, item.currency||'UAH');
-}
-
+function updateTotal(){ const it=state.current; if(!it) return; $("#pTotal").textContent = money(Number(it.price)*state.qty, it.currency||'UAH'); }
 function openProduct(item){
   state.current=item; state.qty=1;
   $("#pImg").src = imageOr(item.image_url);
   $("#pTitle").textContent = item.title;
-  $("#pCat").textContent = (item.category==='devices'? 'Девайси' :
-                            item.category==='liquids'? 'Рідини' :
-                            item.category==='cartridges'? 'Картриджі' : 'Товар');
+  $("#pCat").textContent = (item.category||'Товар');
   $("#pPrice").textContent = money(item.price,item.currency);
-  $("#pQty").value = 1;
-  setBadge(item);
-
-  const d = $("#pDesc");
-  d.textContent = item.description || 'Опис відсутній.';
-  const needClamp = (item.description||'').length > 220;
-  d.classList.toggle('clamp', needClamp);
-  $("#btnMore").style.display = needClamp ? 'inline' : 'none';
-
-  $("#productModal").classList.add('open');
-  document.body.classList.add('no-scroll');
-  updateTotal();
-
-  // поддержка back кнопки Telegram
-  try{
-    if (Telegram?.WebApp?.BackButton){
-      Telegram.WebApp.BackButton.show();
-      Telegram.WebApp.BackButton.onClick(closeProduct);
-    }
-  }catch(e){}
-  // deep link по якорю (#p:sku)
-  location.hash = `p:${item.sku}`;
+  $("#pDesc").textContent  = item.description || 'Опис відсутній.';
+  $("#pQty").value = 1; setBadge(item); updateTotal();
+  $("#productModal").classList.add('open'); document.body.classList.add('no-scroll');
 }
-
-function closeProduct(){
-  $("#productModal").classList.remove('open');
-  document.body.classList.remove('no-scroll');
-  try{
-    if (Telegram?.WebApp?.BackButton){
-      Telegram.WebApp.BackButton.hide();
-      Telegram.WebApp.BackButton.offClick(closeProduct);
-    }
-  }catch(e){}
-  if (location.hash.startsWith('#p:')) history.replaceState(null,'',' ');
-}
-
+function closeProduct(){ $("#productModal").classList.remove('open'); document.body.classList.remove('no-scroll'); }
 function addToCart(item, qty){
   const cur = state.cart.get(item.sku);
   if (cur) cur.qty += qty; else state.cart.set(item.sku, {item, qty});
-  saveCart(); rerenderCart(); closeProduct();
-  $("#cart").style.display='block';
+  saveCart(); rerenderCart(); closeProduct(); $("#cart").style.display='block';
 }
 
-/* ---------- data / checkout ---------- */
+/* data + checkout */
 async function loadCatalog(){
   try{
-    const r = await fetch('/api/catalog');
-    const data = await r.json();
-    state.items = data.items || [];
-    renderGrid();
-    // если открыли с якорем #p:SKU — сразу покажем
-    if (location.hash.startsWith('#p:')){
-      const sku = location.hash.replace('#p:','');
-      const found = state.items.find(x=>x.sku===sku);
-      if (found) openProduct(found);
-    }
-  }catch(e){
-    $("#grid").innerHTML = `<div class="muted">Не вдалося завантажити каталог.</div>`;
+    const r = await fetch('/api/catalog'); const data = await r.json();
+    state.items = data.items || []; renderGrid();
+  }catch(e){ $("#grid").innerHTML = `<div class="muted">Не вдалося завантажити каталог.</div>`; }
+}
+function isTG(){ try{ return !!(window.Telegram && Telegram.WebApp); }catch(e){ return false; } }
+function tgUsername(){ try{ return Telegram.WebApp?.initDataUnsafe?.user?.username || ''; }catch(e){ return ''; } }
+
+function openCheckout(){
+  // префилд из Telegram если есть
+  $("#fTG").value = tgUsername() ? "@"+tgUsername() : ($("#fTG").value||'');
+  $("#checkout").classList.add('open');
+}
+function closeCheckout(){ $("#checkout").classList.remove('open'); }
+
+async function submitCheckout(){
+  const err = $("#chkErr"); err.style.display='none'; err.textContent='';
+  const city   = $("#fCity").value.trim();
+  const branch = $("#fBranch").value.trim();
+  const recv   = $("#fRecv").value.trim();
+  const phone  = $("#fPhone").value.trim();
+  const tg     = ($("#fTG").value||'').trim();
+  const first  = $("#fFirst").value.trim();
+  const last   = $("#fLast").value.trim();
+
+  if (!city || !branch || !recv || !phone){
+    err.textContent = "Заповніть місто, відділення, ПІБ та телефон.";
+    err.style.display='block'; return;
   }
-}
-
-function hasTGUsername(){
-  try{ return !!(window.Telegram?.WebApp?.initDataUnsafe?.user?.username); }catch(e){ return false; }
-}
-
-function doCheckout(){
-  if (!(window.Telegram && window.Telegram.WebApp)){ alert('Відкрийте цю сторінку з Telegram'); return; }
-  if (state.cart.size===0){ alert('Кошик порожній'); return; }
-  if (!hasTGUsername()){ alert('Потрібен нікнейм у Telegram (username). Додайте його в налаштуваннях Telegram.'); return; }
-
-  const city   = prompt('Місто:')||'';
-  const branch = prompt('Відділення НП:')||'';
-  const recv   = prompt('ПІБ:')||'';
-  const phone  = prompt('Телефон:')||'';
-
+  if (state.cart.size===0){
+    err.textContent = "Кошик порожній."; err.style.display='block'; return;
+  }
   const items = [...state.cart.values()].map(v=>({sku:v.item.sku, qty:v.qty}));
 
-  Telegram.WebApp.ready();
-  Telegram.WebApp.sendData(JSON.stringify({type:'checkout', items, city, branch, receiver:recv, phone}));
-  alert('Замовлення прийнято! Ми зв’яжемося для підтвердження.');
-  Telegram.WebApp.close();
+  if (isTG()){
+    Telegram.WebApp.ready();
+    Telegram.WebApp.sendData(JSON.stringify({type:'checkout', items, city, branch, receiver:recv, phone}));
+    alert('Замовлення прийнято! Ми зв’яжемося для підтвердження.');
+    Telegram.WebApp.close();
+  }else{
+    // браузерный режим — отправим прямо на бек
+    const r = await fetch('/api/checkout', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({items, city, branch, receiver:recv, phone,
+                            tg_username: tg.replace(/^@/,''),
+                            first_name:first, last_name:last})
+    });
+    if (!r.ok){
+      err.textContent = "Не вдалося оформити. Спробуйте ще раз."; err.style.display='block'; return;
+    }
+    const data = await r.json();
+    alert(`✅ Замовлення №${data.order_id} оформлено!`);
+  }
+  closeCheckout();
 }
 
-/* ---------- wiring ---------- */
+/* wiring */
 $("#btnCart").onclick = ()=>{ $("#cart").style.display='block'; rerenderCart(); };
 $("#btnCartClose").onclick = ()=>{ $("#cart").style.display='none'; };
-$("#btnCartCheckout").onclick = doCheckout;
-$("#btnCheckout").onclick = doCheckout;
+$("#btnCartCheckout").onclick = openCheckout;
+$("#btnCheckout").onclick = openCheckout;
 
 $("#btnPlus").onclick = ()=>{ state.qty++; $("#pQty").value=state.qty; updateTotal(); };
 $("#btnMinus").onclick = ()=>{ state.qty=Math.max(1,Number(state.qty)-1); $("#pQty").value=state.qty; updateTotal(); };
-$("#pQty").oninput = ()=>{ const v = Math.max(1, parseInt($("#pQty").value||'1',10)); state.qty = v; $("#pQty").value=v; updateTotal(); };
+$("#pQty").oninput = ()=>{ const v=Math.max(1,parseInt($("#pQty").value||'1',10)); state.qty=v; $("#pQty").value=v; updateTotal(); };
 
 $("#btnAdd").onclick = ()=> addToCart(state.current, state.qty);
 $("#btnClose").onclick = (e)=>{ e.stopPropagation(); closeProduct(); };
-$("#productModal").onclick = closeProduct;                           // клик по фону закрывает
-document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeProduct(); }});
-
-$("#btnMore").onclick = ()=>{ $("#pDesc").classList.remove('clamp'); $("#btnMore").style.display='none'; };
+$("#productModal").onclick = closeProduct;
 
 document.querySelectorAll('.tabs button').forEach(b=>{
-  b.onclick = ()=>{
-    document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('primary'));
-    b.classList.add('primary');
-    state.category = b.getAttribute('data-cat');
-    renderGrid();
-  };
+  b.onclick = ()=>{ document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('primary'));
+    b.classList.add('primary'); state.category = b.getAttribute('data-cat'); renderGrid(); };
 });
 
-/* age gate */
-function refreshAgeBtn(){ $("#btnAgeOk").disabled = !($("#chk18").checked && $("#chkRules").checked); }
-$("#chk18").onchange = refreshAgeBtn;
-$("#chkRules").onchange = refreshAgeBtn;
-$("#btnAgeOk").onclick = ()=>{ localStorage.setItem('age_ok','1'); $("#ageGate").classList.remove('open'); loadCatalog(); };
+$("#btnChkClose").onclick = closeCheckout;
+$("#btnChkSubmit").onclick = submitCheckout;
 
-window.addEventListener('DOMContentLoaded', ()=>{
-  loadCart(); rerenderCart();
-  if (localStorage.getItem('age_ok')==='1'){ loadCatalog(); } else { $("#ageGate").classList.add('open'); }
-});
+window.addEventListener('DOMContentLoaded', ()=>{ loadCart(); rerenderCart(); loadCatalog(); });
 </script>
 </body>
 </html>
+
+
 
 
 
