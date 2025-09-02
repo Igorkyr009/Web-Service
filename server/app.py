@@ -1,4 +1,3 @@
-# /server/app.py
 import os, asyncio, time, json, mimetypes, secrets
 from io import BytesIO
 from pathlib import Path
@@ -19,9 +18,9 @@ load_dotenv()
 
 BOT_TOKEN        = os.getenv("BOT_TOKEN", "").strip()
 ADMIN_ID         = os.getenv("ADMIN_ID", "").strip()
-ADMIN_BOT_TOKEN  = os.getenv("ADMIN_BOT_TOKEN", "").strip()
+ADMIN_BOT_TOKEN  = os.getenv("ADMIN_BOT_TOKEN", "").strip()   # второй бот для уведомлений (необяз.)
 ADMIN_CHAT_ID    = os.getenv("ADMIN_CHAT_ID", "").strip() or ADMIN_ID
-ADMIN_SECRET     = os.getenv("ADMIN_SECRET", "").strip()  # для админ-API
+ADMIN_SECRET     = os.getenv("ADMIN_SECRET", "").strip()      # ключ для админ-API (лучше задать)
 PORT             = int(os.getenv("PORT", "8000"))
 
 BASE_DIR   = Path(__file__).resolve().parent
@@ -29,7 +28,7 @@ WEB_DIR    = BASE_DIR / "web"
 DATA_ROOT  = Path("/data")
 TMP_ROOT   = Path("/tmp")
 
-# DB и загрузки — с безопасным фоллбеком
+# DB и загрузки — с фоллбеком на /tmp если /data недоступна
 DB_PATH    = (DATA_ROOT / "shop.db") if DATA_ROOT.exists() else (TMP_ROOT / "shop.db")
 UPLOAD_DIR = (DATA_ROOT / "uploads") if DATA_ROOT.exists() else (TMP_ROOT / "uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -39,9 +38,9 @@ if not BOT_TOKEN:
 
 # -------------------- TELEGRAM --------------------
 bot = Bot(BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-dp  = Dispatcher()  # ВАЖНО: создаём ДО декораторов!
+dp  = Dispatcher()  # ВАЖНО: до декораторов!
 
-# отдельный бот для уведомлений
+# отдельный бот для уведомлений (если не задан — шлём с основного)
 admin_bot = Bot(ADMIN_BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML)) if ADMIN_BOT_TOKEN else bot
 
 async def notify_admin(text: str):
@@ -93,16 +92,15 @@ CREATE TABLE IF NOT EXISTS order_items (
 """
 
 async def init_db():
-    # создаём родительскую папку, если нужно
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     async with aiosqlite.connect(DB_PATH) as db:
         await db.executescript(CREATE_SQL)
         await db.commit()
 
-# Простой каталог (fallback, если таблица пуста)
 DEFAULT_CATALOG = {
-    "coffee_1kg": {"title": "Кофе в зёрнах 1 кг", "price": 1299, "currency": "UAH", "image_url": "", "is_active": 0, "category":"devises", "availability":"in_stock"},
-    "mug_brand":  {"title": "Кружка бренда",       "price":  299, "currency": "UAH", "image_url": "", "is_active": 0, "category":"devises", "availability":"in_stock"},
+    # примеры выключены (is_active=0) — создай свои в админке
+    "coffee_1kg": {"title": "Кофе в зёрнах 1 кг", "price": 1299, "currency": "UAH", "image_url": "", "is_active": 0, "category":"devices", "availability":"in_stock"},
+    "mug_brand":  {"title": "Кружка бренда",       "price":  299, "currency": "UAH", "image_url": "", "is_active": 0, "category":"devices", "availability":"in_stock"},
 }
 
 async def ensure_some_products():
@@ -117,10 +115,10 @@ async def ensure_some_products():
                 )
             await db.commit()
 
-# -------------------- AIROUTER (HTTP) --------------------
+# -------------------- HTTP HELPERS --------------------
 def check_admin_secret(request: web.Request) -> bool:
     if not ADMIN_SECRET:
-        return True  # если секрет не задан — не блокируем (на твой страх и риск)
+        return True  # если секрет не задан — не блокируем (на свой риск)
     key = request.headers.get("X-Admin-Secret") or request.query.get("key")
     return key == ADMIN_SECRET
 
@@ -128,13 +126,10 @@ async def api_health(_):
     return web.json_response({"ok": True, "ts": int(time.time())})
 
 async def api_catalog(_):
-    # только активные товары
     async with aiosqlite.connect(DB_PATH) as db:
         cur = await db.execute("""
             SELECT sku,title,description,price,currency,image_url,is_active,category,availability
-            FROM products
-            WHERE is_active=1
-            ORDER BY category NULLS LAST, title
+            FROM products WHERE is_active=1 ORDER BY category NULLS LAST, title
         """)
         rows = await cur.fetchall()
     items = [
@@ -210,7 +205,7 @@ async def api_upload(request: web.Request):
         return web.Response(status=400, text="file part missing")
 
     raw = await part.read()
-    # Обрезаем в квадрат 800x800
+    # Обрезаем в квадрат 800x800 (JPEG)
     try:
         img = Image.open(BytesIO(raw))
         img.load()
@@ -222,7 +217,6 @@ async def api_upload(request: web.Request):
     left = (w - side) // 2
     top  = (h - side) // 2
     img = img.crop((left, top, left + side, top + side)).resize((800, 800))
-    # всегда JPEG
     out = BytesIO()
     img.convert("RGB").save(out, format="JPEG", quality=88, optimize=True)
     out.seek(0)
@@ -234,42 +228,52 @@ async def api_upload(request: web.Request):
 
     return web.json_response({"ok": True, "url": f"/uploads/{name}"})
 
+async def api_test_notify(request: web.Request):
+    if not check_admin_secret(request):
+        return web.Response(status=401, text="unauthorized")
+    text = request.query.get("text", "ping")
+    await notify_admin(f"TEST: {text}")
+    return web.json_response({"ok": True})
+
 # статика
 async def file_handler(request: web.Request):
-    # отдаём index.html/admin.html/прочие файлы из /web
     rel = request.match_info.get("path", "").strip("/") or "index.html"
     target = (WEB_DIR / rel).resolve()
     if not str(target).startswith(str(WEB_DIR)):
         return web.Response(status=403, text="forbidden")
-    if not target.exists():
-        return web.Response(status=404, text="not found")
     if target.is_dir():
         target = target / "index.html"
-        if not target.exists():
-            return web.Response(status=404, text="not found")
+    if not target.exists():
+        return web.Response(status=404, text="not found")
     mime, _ = mimetypes.guess_type(str(target))
     return web.FileResponse(path=target, headers={"Content-Type": mime or "text/html; charset=utf-8"})
 
 # -------------------- TELEGRAM HANDLERS --------------------
-WEBAPP_URL = os.getenv("WEBAPP_URL", "").strip() or f"http://localhost:{PORT}/index.html"
+WEBAPP_URL = os.getenv("WEBAPP_URL", "").strip()  # если хочешь переопределить домен вручную
 
 async def setup_menu_button():
+    url = (WEBAPP_URL or f"http://localhost:{PORT}/index.html") + "#/catalog"
     try:
-        await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(text="🛍 Вітрина", web_app=WebAppInfo(url=WEBAPP_URL)))
+        await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(text="🛍 Вітрина", web_app=WebAppInfo(url=url)))
+        print("Menu set to:", url)
     except Exception as e:
         print("set_chat_menu_button error:", e)
 
 @dp.message(Command("start"))
 async def cmd_start(m: Message):
+    base = WEBAPP_URL or f"http://localhost:{PORT}/index.html"
     kb = InlineKeyboardBuilder()
-    kb.button(text="🛍 Відкрити вітрину", web_app=WebAppInfo(url=f"{WEBAPP_URL}#/catalog"))
-    kb.button(text="🧾 Оформлення",      web_app=WebAppInfo(url=f"{WEBAPP_URL}#/checkout"))
+    kb.button(text="🛍 Відкрити вітрину", web_app=WebAppInfo(url=f"{base}#/catalog"))
+    kb.button(text="🧾 Оформлення",      web_app=WebAppInfo(url=f"{base}#/checkout"))
     kb.adjust(1)
     await m.answer("Вітаю! Оберіть дію:", reply_markup=kb.as_markup())
 
+@dp.message(Command("whoami"))
+async def whoami(m: Message):
+    await m.answer(f"Ваш User ID: <code>{m.from_user.id}</code>\nChat ID: <code>{m.chat.id}</code>\nUsername: @{m.from_user.username or '—'}")
+
 @dp.message(F.web_app_data)
 async def on_webapp_data(m: Message):
-    # ждём JSON payload от webapp
     try:
         data = json.loads(m.web_app_data.data)
     except Exception:
@@ -278,7 +282,6 @@ async def on_webapp_data(m: Message):
     if data.get("type") != "checkout":
         return await m.answer("Невідомий тип даних із вітрини.")
 
-    # В твоей витрине передаются items = [{sku,qty}], + city/branch/receiver/phone/username
     items_in = data.get("items", [])
     if not items_in:
         return await m.answer("Кошик порожній.")
@@ -332,10 +335,9 @@ async def on_webapp_data(m: Message):
             )
         await db.commit()
 
-    # ответ покупателю
     await m.answer(f"✅ Замовлення #{order_id} створено! Ми звʼяжемося щодо доставки.")
 
-    # уведомление админу (в отдельного бота)
+    # уведомление админу
     items_txt = "\n".join([f"• {t} × {q} = {p*q} {currency}" for _, t, p, q in items])
     buyer_un = username or (('@'+m.from_user.username) if m.from_user.username else '—')
     buyer_name = f"{m.from_user.first_name or ''} {m.from_user.last_name or ''}".strip()
@@ -349,18 +351,10 @@ async def on_webapp_data(m: Message):
         f"Отримувач: {receiver}\nТелефон: {phone}"
     )
     await notify_admin(admin_msg)
-async def api_test_notify(request):
-    # GET /api/test-notify?text=hello  (нужен X-Admin-Secret, если он задан)
-    if not check_admin_secret(request):
-        return web.Response(status=401, text="unauthorized")
-    text = request.query.get("text", "ping")
-    await notify_admin(f"TEST: {text}")
-    return web.json_response({"ok": True})
 
 # -------------------- APP RUN --------------------
 async def aiohttp_app():
     app = web.Application()
-
     # API
     app.add_routes([
         web.get('/health', api_health),
@@ -369,12 +363,9 @@ async def aiohttp_app():
         web.put('/api/products/{sku}', api_put_product),
         web.post('/api/upload', api_upload),
         web.get('/api/test-notify', api_test_notify),
-
     ])
-
     # статика: /uploads/*
     app.router.add_static('/uploads', path=str(UPLOAD_DIR), name='uploads')
-
     # фронтенд (index.html, admin.html и т.д.)
     app.add_routes([
         web.get('/', lambda r: web.HTTPFound('/index.html')),
@@ -385,7 +376,6 @@ async def aiohttp_app():
 async def main():
     print(f"DB_PATH    = {DB_PATH}")
     print(f"UPLOAD_DIR = {UPLOAD_DIR}")
-    print(f"WEBAPP_URL = {os.getenv('WEBAPP_URL', '').strip() or f'http://localhost:{PORT}/index.html'}")
 
     await init_db()
     await ensure_some_products()
@@ -398,11 +388,11 @@ async def main():
     await site.start()
     print(f"HTTP on :{PORT}")
 
-    # параллельно запускаем polling
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 
