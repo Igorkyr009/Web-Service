@@ -1,190 +1,267 @@
-<!doctype html><html lang="uk">
+<!doctype html>
+<html lang="uk">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Адмінка</title>
 <style>
-  *,*::before,*::after{box-sizing:border-box}
-  body{font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;margin:0 auto;max-width:1000px;padding:16px;background:#fafafa;color:#0f172a}
-  h2,h3{margin:0 0 10px}
-  .wrap{display:grid;grid-template-columns:360px 1fr;gap:16px}
-  @media (max-width:980px){ .wrap{grid-template-columns:1fr} }
-  input,textarea,select{width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:12px;background:#fff}
-  button{padding:10px 12px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;cursor:pointer}
-  .primary{background:#0ea5e9;border-color:#0ea5e9;color:#fff}
-  .muted{color:#64748b}
-  .card{border:1px solid #e5e7eb;border-radius:14px;background:#fff;padding:12px}
-  .list{display:grid;gap:8px;max-height:65vh;overflow:auto}
-  .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
-  .item{padding:8px;border:1px solid #e5e7eb;border-radius:10px;cursor:pointer}
-  .item:hover{background:#f8fafc}
-  .preview{width:200px;aspect-ratio:1/1;object-fit:cover;border-radius:10px;background:#f3f4f6;border:1px solid #e5e7eb}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .full{grid-column:1/-1}
+  :root{--bg:#0b0c10;--card:#111318;--muted:#9aa3af;--text:#f5f7fa;--accent:#0ea5e9;--border:#1f2430}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,Segoe UI,Roboto,Arial}
+  header{position:sticky;top:0;background:rgba(11,12,16,.8);backdrop-filter:blur(6px);z-index:10;border-bottom:1px solid var(--border)}
+  .wrap{max-width:980px;margin:0 auto;padding:14px 16px}
+  .row{display:flex;gap:8px;align-items:center;justify-content:space-between}
+  .btn{padding:10px 14px;border-radius:12px;border:1px solid var(--border);background:#151822;color:var(--text);cursor:pointer}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.danger{background:#ef4444;border-color:#ef4444}
+  input,select,textarea{width:100%;padding:10px;border-radius:12px;border:1px solid var(--border);background:#0f1218;color:#fff}
+  label{font-size:14px;color:#c9d2de}
+  .grid{display:grid;grid-template-columns:280px 1fr;gap:16px;padding:16px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:12px}
+  .muted{color:var(--muted);font-size:14px}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:10px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+  .tabs{display:flex;gap:8px;padding:8px 16px;border-bottom:1px solid var(--border)}
+  .tabs .btn.active{background:#1b2130}
+  .hidden{display:none}
+  img.thumb{width:100%;border-radius:12px;aspect-ratio:1/1;object-fit:cover;background:#0f1218}
 </style>
 <body>
-  <h2>Адмінка</h2>
-  <div class="row" style="margin-bottom:10px">
-    <div style="flex:1">
-      <input id="admkey" placeholder="Admin Secret (X-Admin-Secret)">
-    </div>
-    <button id="saveKey">Зберегти ключ</button>
-  </div>
-
-  <div class="wrap">
-    <div class="card">
-      <div class="row" style="gap:8px;margin-bottom:8px">
-        <input id="q" placeholder="Пошук за SKU/назвою">
-        <button id="find">Знайти</button>
-        <button id="new">Новий</button>
-      </div>
-      <div id="list" class="list"></div>
-    </div>
-
-    <div class="card">
-      <h3>Товар</h3>
-      <div class="grid">
-        <div><label class="muted">SKU<input id="sku" placeholder="унікальний ключ"></label></div>
-        <div><label class="muted">Активний
-          <select id="is_active"><option value="1">Так</option><option value="0">Ні</option></select>
-        </label></div>
-
-        <div class="full"><label class="muted">Назва<input id="title" placeholder="Назва"></label></div>
-        <div class="full"><label class="muted">Опис<textarea id="description" rows="4" placeholder="Короткий опис"></textarea></label></div>
-
-        <div><label class="muted">Ціна<input id="price" type="number" min="0" placeholder="0"></label></div>
-        <div><label class="muted">Валюта<input id="currency" value="UAH"></label></div>
-
-        <div><label class="muted">Категорія
-          <select id="category">
-            <option value="">—</option>
-            <option value="devices">Пристрої</option>
-            <option value="liquids">Рідини</option>
-            <option value="cartridges">Картриджі</option>
-          </select>
-        </label></div>
-
-        <div><label class="muted">Наявність
-          <select id="availability">
-            <option value="in_stock">В наявності</option>
-            <option value="preorder">Передзамовлення</option>
-          </select>
-        </label></div>
-
-        <div class="full">
-          <label class="muted">Зображення (URL)
-            <input id="image_url" placeholder="/uploads/....jpg або https://...">
-          </label>
-        </div>
-
-        <div>
-          <img id="preview" class="preview" src="https://via.placeholder.com/800?text=No+Image" alt="">
-        </div>
-        <div>
-          <label class="muted">Завантажити зображення (обрізає 800×800)
-            <input id="file" type="file" accept="image/*">
-          </label>
-          <div class="muted" style="margin-top:6px">Після завантаження поле URL заповниться автоматично</div>
-        </div>
-
-        <div class="full" style="display:flex;gap:8px;justify-content:flex-end">
-          <button id="save" class="primary">Зберегти</button>
-        </div>
-      </div>
+<header>
+  <div class="wrap row">
+    <h3>Адмінка</h3>
+    <div class="row" style="gap:8px">
+      <input id="secret" placeholder="Admin Secret (X-Admin-Secret)" style="width:280px">
+      <button class="btn primary" onclick="saveSecret()">Зберегти ключ</button>
     </div>
   </div>
+  <div class="tabs">
+    <div class="wrap" style="display:flex;gap:8px">
+      <button class="btn tab active" data-view="products">Товари</button>
+      <button class="btn tab" data-view="orders">Замовлення</button>
+    </div>
+  </div>
+</header>
+
+<div id="view-products" class="wrap">
+  <div class="grid">
+    <div class="card">
+      <h4>Товар</h4>
+      <div style="display:grid;gap:10px;margin-top:8px">
+        <div>
+          <label>SKU (унікальний)</label>
+          <input id="sku">
+        </div>
+        <div>
+          <label>Назва</label>
+          <input id="title">
+        </div>
+        <div>
+          <label>Опис</label>
+          <textarea id="description" rows="5"></textarea>
+        </div>
+        <div class="row" style="gap:10px">
+          <div style="flex:1">
+            <label>Ціна</label>
+            <input id="price" type="number" min="0" value="0">
+          </div>
+          <div style="flex:1">
+            <label>Валюта</label>
+            <input id="currency" value="UAH">
+          </div>
+        </div>
+        <div class="row" style="gap:10px">
+          <div style="flex:1">
+            <label>Категорія</label>
+            <select id="category">
+              <option value="devices">Девайси</option>
+              <option value="liquids">Рідини</option>
+              <option value="cartridges">Картриджі</option>
+            </select>
+          </div>
+          <div style="flex:1">
+            <label>Доступність</label>
+            <select id="availability">
+              <option value="in_stock">В наявності</option>
+              <option value="preorder">Передзамовлення</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label>Зображення (URL)</label>
+          <input id="image_url" placeholder="/uploads/xxx.jpg або https://...">
+        </div>
+        <div>
+          <label>Завантажити зображення (файл)</label>
+          <input id="file" type="file" accept="image/*" onchange="uploadFile(this.files[0])">
+          <div class="muted">HEIC/HEIF не підтримується — збережіть як JPEG/PNG/WebP.</div>
+        </div>
+        <div>
+          <label><input type="checkbox" id="is_active" checked> Показувати в каталозі</label>
+        </div>
+        <div class="row" style="justify-content:flex-end;gap:8px">
+          <button class="btn danger" onclick="removeProduct()">Видалити</button>
+          <button class="btn primary" onclick="saveProduct()">Зберегти</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row"><h4>Перелік товарів</h4><button class="btn" onclick="loadProducts()">Оновити</button></div>
+      <div id="list" style="margin-top:8px"></div>
+    </div>
+  </div>
+</div>
+
+<div id="view-orders" class="wrap hidden">
+  <div class="card">
+    <div class="row"><h4>Замовлення</h4><button class="btn" onclick="loadOrders()">Оновити</button></div>
+    <div id="orders"></div>
+  </div>
+</div>
 
 <script>
-const $=s=>document.querySelector(s);
+const $ = s => document.querySelector(s);
 const API = {
-  products:(q)=>'/api/products'+(q?`?q=${encodeURIComponent(q)}`:''),
-  put:(sku)=>`/api/products/${encodeURIComponent(sku)}`,
-  upload:'/api/upload'
+  list:  ()=> fetch('/api/admin/catalog', {headers:sec()}).then(r=>r.json()),
+  save:  (payload)=> fetch('/api/admin/catalog', {method:'POST',headers:hd(),body:JSON.stringify(payload)}).then(r=>r.json()),
+  del:   (sku)=> fetch('/api/admin/catalog/'+encodeURIComponent(sku), {method:'DELETE',headers:sec()}).then(r=>r.json()),
+  upl:   (file)=>{
+    const fd = new FormData(); fd.append('file', file);
+    return fetch('/api/admin/upload', {method:'POST',headers:sec(),body:fd}).then(r=>r.json());
+  },
+  orders: ()=> fetch('/api/admin/orders', {headers:sec()}).then(r=>r.json()),
+  order:  (id)=> fetch('/api/admin/orders/'+id, {headers:sec()}).then(r=>r.json()),
+  setStatus:(id, status)=> fetch('/api/admin/orders/'+id+'/status', {method:'POST',headers:hd(),body:JSON.stringify({status})}).then(r=>r.json())
 };
 
-function key(){ return localStorage.getItem('adm.key')||''; }
-function headers(){ const k=key(); return k?{'X-Admin-Secret':k}:{ }; }
+function sec(){
+  const k = localStorage.getItem('admin_secret')||'';
+  return {'X-Admin-Secret': k};
+}
+function hd(){
+  return Object.assign({'Content-Type':'application/json'}, sec());
+}
 
-async function list(q){
-  const r = await fetch(API.products(q), {headers:headers()});
-  if(!r.ok){ alert('Помилка авторизації (Admin Secret)'); return; }
-  const j = await r.json();
-  const items = j.items||[];
-  $('#list').innerHTML = items.map(p=>`
-    <div class="item" data-sku="${p.sku}">
-      <div class="row">
+function saveSecret(){
+  const v = $('#secret').value.trim();
+  if (!v) return alert('Введіть ключ');
+  localStorage.setItem('admin_secret', v);
+  alert('Збережено');
+}
+
+function pick(p){
+  $('#sku').value = p.sku||'';
+  $('#title').value = p.title||'';
+  $('#description').value = p.description||'';
+  $('#price').value = p.price||0;
+  $('#currency').value = p.currency||'UAH';
+  $('#category').value = p.category||'devices';
+  $('#availability').value = p.availability||'in_stock';
+  $('#image_url').value = p.image_url||'';
+  $('#is_active').checked = !!p.is_active;
+}
+
+async function loadProducts(){
+  const data = await API.list();
+  const items = data.items||[];
+  const box = $('#list');
+  if (!items.length){ box.innerHTML = '<div class="muted">Порожньо</div>'; return; }
+  box.innerHTML = items.map(p=>`
+    <div class="row" style="gap:12px;border-bottom:1px solid var(--border);padding:10px 0">
+      <img class="thumb" src="${p.image_url||'https://picsum.photos/seed/'+encodeURIComponent(p.sku)+'/300/300'}" style="width:68px">
+      <div style="flex:1">
         <b>${p.title}</b>
-        <span class="muted">${p.sku}</span>
+        <div class="muted">${p.sku} • ${p.category} • ${p.availability} • ${p.is_active?'active':'hidden'}</div>
       </div>
-      <div class="muted">${p.category||'—'} · ${p.availability==='preorder'?'предзамовлення':'в наявності'} · ${p.is_active?'активний':'—'}</div>
+      <div class="muted">${p.price} ${p.currency||'UAH'}</div>
+      <button class="btn" onclick='pick(${JSON.stringify(p)})'>Редагувати</button>
     </div>
   `).join('');
-  [...document.querySelectorAll('.item')].forEach(el=>{
-    el.onclick = ()=>{
-      const sku = el.dataset.sku;
-      const p = items.find(x=>x.sku===sku);
-      fill(p);
-    };
-  });
 }
 
-function fill(p){
-  $('#sku').value = p?.sku || '';
-  $('#title').value = p?.title || '';
-  $('#description').value = p?.description || '';
-  $('#price').value = p?.price || 0;
-  $('#currency').value = p?.currency || 'UAH';
-  $('#image_url').value = p?.image_url || '';
-  $('#is_active').value = (p?.is_active?1:0);
-  $('#category').value = p?.category || '';
-  $('#availability').value = p?.availability || 'in_stock';
-  $('#preview').src = p?.image_url || 'https://via.placeholder.com/800?text=No+Image';
-  $('#file').value = '';
-}
-
-async function save(){
-  const sku=$('#sku').value.trim();
-  if(!sku){ alert('Вкажіть SKU'); return; }
-
-  // если выбран файл — сначала загрузим
-  const file = $('#file').files[0];
-  let image_url = $('#image_url').value.trim();
-  if(file){
-    const fd = new FormData();
-    fd.append('file', file);
-    const r = await fetch(API.upload, {method:'POST', headers:headers(), body:fd});
-    if(!r.ok){ alert('Не вдалося завантажити зображення'); return; }
-    const j = await r.json();
-    if(j.ok && j.url){ image_url = j.url; $('#image_url').value = image_url; $('#preview').src = image_url; }
-  }
-
-  const body = {
+async function saveProduct(){
+  const payload = {
+    sku: $('#sku').value.trim(),
     title: $('#title').value.trim(),
     description: $('#description').value.trim(),
-    price: parseInt($('#price').value||0,10),
-    currency: $('#currency').value.trim()||'UAH',
-    image_url,
-    is_active: parseInt($('#is_active').value||0,10),
-    category: $('#category').value.trim(),
-    availability: $('#availability').value.trim()||'in_stock'
+    price: +($('#price').value||0),
+    currency: $('#currency').value.trim() || 'UAH',
+    category: $('#category').value,
+    availability: $('#availability').value,
+    image_url: $('#image_url').value.trim(),
+    is_active: $('#is_active').checked ? 1 : 0
   };
-
-  const r = await fetch(API.put(sku), {method:'PUT', headers:{'Content-Type':'application/json', ...headers()}, body:JSON.stringify(body)});
-  if(!r.ok){ alert('Помилка збереження'); return; }
+  if (!payload.sku) return alert('Вкажіть SKU');
+  if (!payload.title) return alert('Вкажіть назву');
+  await API.save(payload);
+  await loadProducts();
   alert('Збережено');
-  await list($('#q').value.trim());
 }
 
-document.addEventListener('DOMContentLoaded', async ()=>{
-  const k = localStorage.getItem('adm.key')||'';
-  $('#admkey').value = k;
+async function removeProduct(){
+  const sku = $('#sku').value.trim();
+  if (!sku) return alert('Немає SKU');
+  if (!confirm('Видалити товар?')) return;
+  await API.del(sku);
+  await loadProducts();
+  alert('Видалено');
+}
 
-  $('#saveKey').onclick = ()=>{ localStorage.setItem('adm.key', $('#admkey').value.trim()); alert('Ключ збережено'); };
-  $('#find').onclick = ()=> list($('#q').value.trim());
-  $('#new').onclick = ()=> fill({sku:'',title:'',description:'',price:0,currency:'UAH',image_url:'',is_active:true,category:'',availability:'in_stock'});
-  $('#image_url').oninput = ()=>{ $('#preview').src = $('#image_url').value.trim() || 'https://via.placeholder.com/800?text=No+Image'; }
-  $('#save').onclick = save;
+async function uploadFile(file){
+  if (!file) return;
+  const res = await API.upl(file);
+  if (!res.ok) { alert(res.error||'Помилка'); return; }
+  $('#image_url').value = res.url;
+  alert('Зображення завантажено');
+}
 
-  await list('');
+function switchTab(to){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  document.querySelector('.tab[data-view="'+to+'"]').classList.add('active');
+  document.querySelectorAll('[id^="view-"]').forEach(v=>v.classList.add('hidden'));
+  $('#view-'+to).classList.remove('hidden');
+}
+
+async function loadOrders(){
+  const data = await API.orders();
+  const arr = data.orders||[];
+  const box = $('#orders');
+  if (!arr.length){ box.innerHTML = '<div class="muted">Замовлень поки немає</div>'; return; }
+  box.innerHTML = arr.map(o=>`
+    <div class="card" style="margin:8px 0">
+      <div class="row">
+        <div><b>#${o.id}</b> • ${o.total} ${o.currency} • <span class="muted">${o.status}</span></div>
+        <button class="btn" onclick="openOrder(${o.id})">Деталі</button>
+      </div>
+      <div class="muted">${o.tg_username||'-'} • ${o.tg_name||'-'} • ${o.city||'-'} / ${o.branch||'-'}</div>
+    </div>
+  `).join('');
+}
+
+async function openOrder(id){
+  const o = await API.order(id);
+  const items = (o.items||[]).map(i=>`<li>${i.title} × ${i.qty} = ${i.price*i.qty} ${o.currency}</li>`).join('');
+  const st = prompt(
+    `Замовлення #${o.id}\n`+
+    `Клієнт: ${o.receiver||'-'} / ${o.phone||'-'}\n`+
+    `TG: ${o.tg_username||'-'}\n`+
+    `Адреса: ${o.city||'-'}, ${o.branch||'-'}\n\n`+
+    `Товари:\n - ${items.replace(/<li>|<\/li>/g,'')}\n\n`+
+    `Статус: ${o.status}\n\nВведіть новий статус (new|processing|shipped|done|canceled) або залиште як є`,
+    o.status
+  );
+  if (st && st!==o.status){
+    await API.setStatus(id, st);
+    await loadOrders();
+    alert('Статус оновлено');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  $('#secret').value = localStorage.getItem('admin_secret')||'';
+  document.querySelectorAll('.tab').forEach(b=>{
+    b.addEventListener('click', ()=> switchTab(b.dataset.view));
+  });
+  loadProducts();
 });
 </script>
 </body>
@@ -194,7 +271,9 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 
 
 
+
    
+
 
 
 
