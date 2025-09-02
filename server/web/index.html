@@ -289,6 +289,40 @@ function renderCheckout(){
   `;
 
   $('#backToCat').onclick = ()=>{ location.hash = '#/catalog'+(CAT?`?cat=${CAT}`:''); };
+<script>
+  $('#confirm').onclick = ()=>{
+    const items = [...CART.entries()];
+    if(!items.length){ alert('Кошик порожній'); return; }
+
+    const city=$('#city').value.trim(),
+          branch=$('#branch').value.trim(),
+          receiver=$('#receiver').value.trim(),
+          phone=$('#phone').value.trim(),
+          username=$('#username').value.trim();
+
+    if(!city||!branch||!receiver||!phone){ alert('Заповніть усі поля'); return; }
+    if(!/^@[\w\d_]{3,}$/.test(username)){ alert('Вкажіть нік у Telegram (починається з @)'); return; }
+
+    const payload = {
+      type:'checkout',
+      items:items.map(([sku,qty])=>({sku,qty})),
+      city,branch,receiver,phone,username
+    };
+
+    if(!inTg()){
+      alert('Щоб надіслати замовлення продавцю, відкрийте цю сторінку саме в Telegram (міні-додаток) і натисніть «Надіслати».');
+      return; // НЕ показываем экран успеха вне Telegram
+    }
+
+    // В Telegram: отправляем и показываем успех
+    try{ Telegram.WebApp.ready(); }catch{}
+    try{ Telegram.WebApp.sendData(JSON.stringify(payload)); }catch(e){ console.error(e); alert('Не вдалось надіслати. Спробуйте ще раз.'); return; }
+
+    renderSuccess();
+    CART.clear(); saveCart(); updCount();
+    setTimeout(()=>{ try{ Telegram.WebApp.close(); }catch{} }, 1200);
+  };
+</script>
 
   $('#confirm').onclick = ()=>{
     if(!items.length){ alert('Кошик порожній'); return; }
@@ -394,6 +428,7 @@ $('#btnCheckout').onclick = ()=>{ location.hash = '#/checkout'; };
 </script>
 </body>
 </html>
+
 
 
 
