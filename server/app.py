@@ -28,6 +28,7 @@ WEB_DIR  = BASE_DIR / "web"
 DB_PATH    = os.getenv("DB_PATH", "/tmp/shop.db")
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/var/data/uploads")
 
+# uploads dir (Render: persistent disk is /var/data)
 try:
     Path(UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
 except Exception:
@@ -196,6 +197,7 @@ bot = Bot(BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp  = Dispatcher()
 
 async def notify_admin_text(text: str):
+    # try secondary bot first
     if ADMIN_BOT_TOKEN and ADMIN_CHAT_ID:
         try:
             other = Bot(ADMIN_BOT_TOKEN)
@@ -204,6 +206,7 @@ async def notify_admin_text(text: str):
             return
         except Exception:
             pass
+    # fallback to main bot
     if ADMIN_ID:
         try:
             await bot.send_message(int(ADMIN_ID), text)
@@ -212,21 +215,36 @@ async def notify_admin_text(text: str):
 
 @dp.message(Command("start"))
 async def cmd_start(m: Message):
+    # В /start — только витрина для всех
     kb = [
-        [{"text": "🛍 Вітрина", "web_app": {"url": f"{request_base()}/index.html"}}],
-        [{"text": "🛒 Адмінка", "web_app": {"url": f"{request_base()}/admin.html"}}]
+        [{"text": "🛍 Вітрина", "web_app": {"url": f"{request_base()}/index.html"}}]
     ]
     await m.answer("Привіт! Відкрий міні-магазин нижче 👇", reply_markup={"inline_keyboard": kb})
 
+@dp.message(Command("admin"))
+async def cmd_admin(m: Message):
+    # Кнопка адмінки только админу
+    try:
+        is_admin = (ADMIN_ID and str(m.from_user.id) == str(ADMIN_ID))
+    except Exception:
+        is_admin = False
+    if not is_admin:
+        return await m.answer("⛔️ Доступ заборонено.")
+    kb = [
+        [{"text": "🛒 Адмінка", "web_app": {"url": f"{request_base()}/admin.html"}}]
+    ]
+    await m.answer("Панель адміністратора:", reply_markup={"inline_keyboard": kb})
+
 @dp.message(Command("setadmin"))
 async def cmd_setadmin(m: Message):
+    # закрепить текущего пользователя как админа
     global ADMIN_ID
     ADMIN_ID = str(m.from_user.id)
     await m.answer(f"Адмін встановлений: <code>{ADMIN_ID}</code>")
 
 @dp.message(F.web_app_data)
 async def on_webapp_data(m: Message):
-    # приходят данные из мини-аппа Telegram
+    # данные из мини-аппа Telegram
     try:
         data = json.loads(m.web_app_data.data)
     except Exception:
@@ -349,7 +367,7 @@ async def api_upload(request: web.Request):
     url = f"/uploads/{rnd}"
     return web.json_response({"url": url})
 
-# === НОВОЕ: публичный checkout (чтобы работало и в браузере) ===
+# === Public checkout (работает и вне Telegram) ===
 async def api_checkout(request: web.Request):
     try:
         data = await request.json()
@@ -362,8 +380,6 @@ async def api_checkout(request: web.Request):
     receiver = (data.get("receiver") or "").strip()
     phone    = (data.get("phone") or "").strip()
     tg_user  = (data.get("tg_username") or "").strip().lstrip("@")
-    first_n  = (data.get("first_name") or "").strip()
-    last_n   = (data.get("last_name") or "").strip()
 
     if not items_in:
         raise web.HTTPBadRequest(text="empty cart")
@@ -385,21 +401,20 @@ async def api_checkout(request: web.Request):
     if not items:
         raise web.HTTPBadRequest(text="no valid items")
 
-    # Фейковый пользователь для браузерного оформления
+    # Псевдо-пользователь для браузерного оформления
     u = type("U", (), {})()
     u.id = 0
     u.username = tg_user or None
-    u.first_name = first_n
-    u.last_name  = last_n
+    u.first_name = ""
+    u.last_name  = ""
 
     order_id = await save_order(u, items, total, currency, city, branch, receiver, phone)
 
     lines = "\n".join([f"• {t} × {q} = {p*q} {currency}" for _,t,p,q in items])
-    who = (f"{first_n} {last_n}".strip() or "—")
     uname = f"@{tg_user}" if tg_user else "—"
     txt = (
         f"🆕 Нове замовлення №{order_id}\n"
-        f"Покупець: {who} ({uname})\n"
+        f"Покупець: {receiver} ({uname})\n"
         f"ID: 0 (браузер)\n"
         f"{lines}\nРазом: {total} {currency}\n"
         f"Місто: {city}\nВідділення: {branch}\n"
@@ -429,7 +444,7 @@ async def start_bot_and_http():
     app.router.add_post("/api/product", api_product_upsert)
     app.router.add_delete("/api/product/{sku}", api_product_delete)
     app.router.add_post("/api/upload", api_upload)
-    app.router.add_post("/api/checkout", api_checkout)  # <- НОВОЕ
+    app.router.add_post("/api/checkout", api_checkout)
 
     app.router.add_get("/", static_index)
     app.router.add_get("/index.html", static_index)
@@ -462,6 +477,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 
