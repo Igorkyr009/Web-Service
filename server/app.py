@@ -22,15 +22,12 @@ ADMIN_CHAT_ID    = os.getenv("ADMIN_CHAT_ID", "").strip()
 ADMIN_SECRET     = os.getenv("ADMIN_SECRET", "").strip()
 PORT             = int(os.getenv("PORT", "8000"))
 
-# где лежит веб
 BASE_DIR = Path(__file__).resolve().parent
 WEB_DIR  = BASE_DIR / "web"
 
-# база и загрузки (Render)
 DB_PATH    = os.getenv("DB_PATH", "/tmp/shop.db")
-UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/var/data/uploads")  # постоянный диск Render
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/var/data/uploads")
 
-# если /var/data недоступен — падаем в /tmp
 try:
     Path(UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
 except Exception:
@@ -145,8 +142,8 @@ async def save_order(user, items: List[Tuple[str, str, int, int]], total: int, c
             "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
             (
                 user.id,
-                f"@{user.username}" if user.username else None,
-                f"{(user.first_name or '').strip()} {(user.last_name or '').strip()}".strip(),
+                f"@{user.username}" if getattr(user, "username", None) else None,
+                f"{(getattr(user, 'first_name', '') or '').strip()} {(getattr(user, 'last_name','') or '').strip()}".strip(),
                 total, currency, city, branch, receiver, phone,
                 "new", int(time.time())
             )
@@ -199,7 +196,6 @@ bot = Bot(BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp  = Dispatcher()
 
 async def notify_admin_text(text: str):
-    # 1) отдельным админ-ботом
     if ADMIN_BOT_TOKEN and ADMIN_CHAT_ID:
         try:
             other = Bot(ADMIN_BOT_TOKEN)
@@ -208,7 +204,6 @@ async def notify_admin_text(text: str):
             return
         except Exception:
             pass
-    # 2) этим же ботом
     if ADMIN_ID:
         try:
             await bot.send_message(int(ADMIN_ID), text)
@@ -221,10 +216,7 @@ async def cmd_start(m: Message):
         [{"text": "🛍 Вітрина", "web_app": {"url": f"{request_base()}/index.html"}}],
         [{"text": "🛒 Адмінка", "web_app": {"url": f"{request_base()}/admin.html"}}]
     ]
-    await m.answer(
-        "Привіт! Відкрий міні-магазин нижче 👇",
-        reply_markup={"inline_keyboard": kb}
-    )
+    await m.answer("Привіт! Відкрий міні-магазин нижче 👇", reply_markup={"inline_keyboard": kb})
 
 @dp.message(Command("setadmin"))
 async def cmd_setadmin(m: Message):
@@ -234,11 +226,11 @@ async def cmd_setadmin(m: Message):
 
 @dp.message(F.web_app_data)
 async def on_webapp_data(m: Message):
+    # приходят данные из мини-аппа Telegram
     try:
         data = json.loads(m.web_app_data.data)
     except Exception:
         return await m.answer("Не вдалося прочитати дані з вітрини.")
-
     if data.get("type") != "checkout":
         return await m.answer("Невідомий тип даних від вітрини.")
 
@@ -251,9 +243,7 @@ async def on_webapp_data(m: Message):
         sku = str(it.get("sku"))
         qty = int(it.get("qty", 1))
         row = await fetch_product_by_sku(sku)
-        if not row or qty <= 0:
-            continue
-        if not row.get("is_active"):
+        if not row or qty <= 0 or not row.get("is_active"):
             continue
         items.append((row["sku"], row["title"], int(row["price"]), qty))
         total += int(row["price"]) * qty
@@ -288,7 +278,6 @@ async def on_webapp_data(m: Message):
 
 # -------------------- HTTP helpers --------------------
 _request_base: str = ""
-
 def request_base() -> str:
     return _request_base or os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 
@@ -360,6 +349,66 @@ async def api_upload(request: web.Request):
     url = f"/uploads/{rnd}"
     return web.json_response({"url": url})
 
+# === НОВОЕ: публичный checkout (чтобы работало и в браузере) ===
+async def api_checkout(request: web.Request):
+    try:
+        data = await request.json()
+    except Exception:
+        raise web.HTTPBadRequest(text="bad json")
+
+    items_in = data.get("items", [])
+    city     = (data.get("city") or "").strip()
+    branch   = (data.get("branch") or "").strip()
+    receiver = (data.get("receiver") or "").strip()
+    phone    = (data.get("phone") or "").strip()
+    tg_user  = (data.get("tg_username") or "").strip().lstrip("@")
+    first_n  = (data.get("first_name") or "").strip()
+    last_n   = (data.get("last_name") or "").strip()
+
+    if not items_in:
+        raise web.HTTPBadRequest(text="empty cart")
+
+    # Собираем позиции строго из БД
+    items: List[Tuple[str,str,int,int]] = []
+    total = 0
+    currency = "UAH"
+    for it in items_in:
+        sku = str(it.get("sku"))
+        qty = int(it.get("qty", 1))
+        row = await fetch_product_by_sku(sku)
+        if not row or qty <= 0 or not row.get("is_active"):
+            continue
+        items.append((row["sku"], row["title"], int(row["price"]), qty))
+        total += int(row["price"]) * qty
+        currency = row.get("currency","UAH")
+
+    if not items:
+        raise web.HTTPBadRequest(text="no valid items")
+
+    # Фейковый пользователь для браузерного оформления
+    u = type("U", (), {})()
+    u.id = 0
+    u.username = tg_user or None
+    u.first_name = first_n
+    u.last_name  = last_n
+
+    order_id = await save_order(u, items, total, currency, city, branch, receiver, phone)
+
+    lines = "\n".join([f"• {t} × {q} = {p*q} {currency}" for _,t,p,q in items])
+    who = (f"{first_n} {last_n}".strip() or "—")
+    uname = f"@{tg_user}" if tg_user else "—"
+    txt = (
+        f"🆕 Нове замовлення №{order_id}\n"
+        f"Покупець: {who} ({uname})\n"
+        f"ID: 0 (браузер)\n"
+        f"{lines}\nРазом: {total} {currency}\n"
+        f"Місто: {city}\nВідділення: {branch}\n"
+        f"Отримувач: {receiver} / {phone}"
+    )
+    await notify_admin_text(txt)
+
+    return web.json_response({"ok": True, "order_id": order_id})
+
 # -------------------- Static pages --------------------
 async def static_index(request: web.Request):
     return web.FileResponse(WEB_DIR / "index.html")
@@ -367,7 +416,6 @@ async def static_index(request: web.Request):
 async def static_admin(request: web.Request):
     return web.FileResponse(WEB_DIR / "admin.html")
 
-# health
 async def health(request: web.Request):
     return web.json_response({"ok": True})
 
@@ -376,19 +424,17 @@ async def start_bot_and_http():
     app = web.Application()
     app.router.add_get("/health", health)
 
-    # API
     app.router.add_get("/api/catalog", api_catalog)
     app.router.add_get("/api/orders",  api_orders)
     app.router.add_post("/api/product", api_product_upsert)
     app.router.add_delete("/api/product/{sku}", api_product_delete)
     app.router.add_post("/api/upload", api_upload)
+    app.router.add_post("/api/checkout", api_checkout)  # <- НОВОЕ
 
-    # pages
     app.router.add_get("/", static_index)
     app.router.add_get("/index.html", static_index)
     app.router.add_get("/admin.html", static_admin)
 
-    # files
     app.router.add_static("/uploads/", UPLOAD_DIR)
     app.router.add_static("/web/", str(WEB_DIR))
 
