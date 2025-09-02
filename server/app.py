@@ -368,6 +368,8 @@ async def aiohttp_app():
         web.get('/api/products', api_products),
         web.put('/api/products/{sku}', api_put_product),
         web.post('/api/upload', api_upload),
+        web.get('/api/test-notify', api_test_notify),
+
     ])
 
     # статика: /uploads/*
