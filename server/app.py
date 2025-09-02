@@ -295,20 +295,18 @@ def guess_type(path: Path) -> str:
     return t or "application/octet-stream"
 
 async def static_index(request: web.Request):
-    # маршрутизация SPA по hash: index.html всегда
-    path = WEB_DIR / "index.html"
-    return web.Response(body=path.read_bytes(), content_type="text/html; charset=utf-8")
+    return web.FileResponse(WEB_DIR / "index.html")
 
 async def static_admin(request: web.Request):
-    path = WEB_DIR / "admin.html"
-    return web.Response(body=path.read_bytes(), content_type="text/html; charset=utf-8")
+    return web.FileResponse(WEB_DIR / "admin.html")
 
 async def static_uploads(request: web.Request):
     name = request.match_info["name"]
     path = Path(UPLOAD_DIR) / name
     if not path.exists():
         raise web.HTTPNotFound()
-    return web.Response(body=path.read_bytes(), content_type=guess_type(path))
+    return web.FileResponse(path)
+
 
 # ------------------- BOT HANDLERS -------------------
 ADMIN_ID_RUNTIME = ADMIN_CHAT_ID  # может быть пустой
