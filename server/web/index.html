@@ -4,62 +4,243 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Магазин</title>
 <style>
-  :root{--bg:#0ea5e9;--fg:#fff;--muted:#667085;--border:#e5e7eb;--danger:#ef4444}
-  body{font-family:system-ui,Segoe UI,Roboto,sans-serif;margin:0 auto;max-width:980px;padding:16px;background:#fff;color:#111}
-  header{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  :root{
+    --bg:#0ea5e9;
+    --fg:#fff;
+    --muted:#667085;
+    --border:#e5e7eb;
+    --danger:#ef4444
+  }
+  body{
+    font-family:system-ui,Segoe UI,Roboto,sans-serif;
+    margin:0 auto;
+    max-width:980px;
+    padding:16px;
+    background:#fff;
+    color:#111
+  }
+  header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap
+  }
   h2{margin:0}
-  button{padding:10px 14px;border-radius:12px;border:1px solid var(--border);background:#fff;cursor:pointer;font-weight:600}
-  .primary{background:var(--bg);color:var(--fg);border-color:var(--bg)}
+  button{
+    padding:10px 14px;
+    border-radius:12px;
+    border:1px solid var(--border);
+    background:#fff;
+    cursor:pointer;
+    font-weight:600
+  }
+  .primary{
+    background:var(--bg);
+    color:var(--fg);
+    border-color:var(--bg)
+  }
   .muted{color:var(--muted);font-size:12px}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin-top:16px}
-  .card{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:#fff;cursor:pointer;display:flex;flex-direction:column;transition:transform .06s ease}
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+    gap:16px;
+    margin-top:16px
+  }
+  .card{
+    border:1px solid var(--border);
+    border-radius:14px;
+    overflow:hidden;
+    background:#fff;
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    transition:transform .06s ease
+  }
   .card:active{transform:scale(.99)}
-  .card img{width:100%;aspect-ratio:1/1;object-fit:cover;background:#f5f5f5;display:block}
+  .card img{
+    width:100%;
+    aspect-ratio:1/1;
+    object-fit:cover;
+    background:#f5f5f5;
+    display:block
+  }
   .card .body{padding:10px}
-  .title{font-weight:700;margin:0 0 6px}
-  .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .title{font-weight:700;margin:6px 0}
+  .row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:8px
+  }
   .price{font-weight:700}
-  .tabs{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+  .tabs{
+    display:flex;
+    gap:8px;
+    margin-top:8px;
+    flex-wrap:wrap
+  }
 
   /* корзина */
-  .cart{position:fixed;right:16px;bottom:16px;left:16px;max-width:980px;margin-inline:auto;border:1px solid var(--border);background:#fff;border-radius:14px;padding:12px;box-shadow:0 10px 30px rgba(0,0,0,.08);display:none;z-index:40}
+  .cart{
+    position:fixed;
+    right:16px;
+    bottom:16px;
+    left:16px;
+    max-width:980px;
+    margin-inline:auto;
+    border:1px solid var(--border);
+    background:#fff;
+    border-radius:14px;
+    padding:12px;
+    box-shadow:0 10px 30px rgba(0,0,0,.08);
+    display:none;
+    z-index:40
+  }
   .cart h4{margin:0 0 10px}
-  .cart-item{display:grid;grid-template-columns:56px 1fr auto auto;gap:10px;align-items:center;padding:8px 0;border-top:1px dashed #eee}
+  .cart-item{
+    display:grid;
+    grid-template-columns:56px 1fr auto auto;
+    gap:10px;
+    align-items:center;
+    padding:8px 0;
+    border-top:1px dashed #eee
+  }
   .cart-item:first-child{border-top:none}
-  .thumb{width:56px;height:56px;border-radius:8px;object-fit:cover;background:#f5f5f5}
-  .qty{display:flex;align-items:center;gap:6px}
+  .thumb{
+    width:56px;
+    height:56px;
+    border-radius:8px;
+    object-fit:cover;
+    background:#f5f5f5
+  }
+  .qty{
+    display:flex;
+    align-items:center;
+    gap:6px
+  }
   .qty button{width:28px;height:28px;padding:0}
-  .cart-footer{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+  .cart-footer{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-top:10px
+  }
 
   /* модал товара */
-  .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:0;z-index:50}
+  .modal{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.45);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:0;
+    z-index:50
+  }
   .modal.open{display:flex}
-  .sheet{background:#fff;border-radius:18px;max-width:860px;width:100%;border:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:20px;max-height:92vh;overflow:auto;position:relative}
-  .sheet .media{display:flex;align-items:flex-start;justify-content:center;background:#f7f7f8;border-radius:12px;min-height:320px;padding-top:16px}
-  .sheet .media img{width:min(520px,100%);max-height:70vh;object-fit:contain;border-radius:12px}
+  .sheet{
+    background:#fff;
+    border-radius:18px;
+    max-width:860px;
+    width:100%;
+    border:1px solid var(--border);
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+    padding:20px;
+    max-height:92vh;
+    overflow:auto;
+    position:relative
+  }
+  .sheet .media{
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    background:#f7f7f8;
+    border-radius:12px;
+    min-height:320px;
+    padding-top:16px
+  }
+  .sheet .media img{
+    width:min(520px,100%);
+    max-height:70vh;
+    object-fit:contain;
+    border-radius:12px
+  }
   .sheet .content{display:flex;flex-direction:column;gap:10px}
-  .badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid var(--border);background:#fafafa;white-space:nowrap}
-  .badge.preorder{border-color:#f59e0b;background:#fffbeb}
+  .badge{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-size:12px;
+    padding:6px 10px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:#fafafa;
+    white-space:nowrap
+  }
+  .badge.preorder{
+    border-color:#f59e0b;
+    background:#fffbeb
+  }
   .desc{color:#444;line-height:1.5}
   .color-note{margin-top:6px;font-size:12px;color:#999}
-  .qtybar{display:flex;align-items:center;gap:10px;margin:8px 0}
-  .qtybar input{width:64px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;text-align:center;font-weight:700}
-  .sheet .actions{position:sticky;bottom:-1px;display:flex;gap:10px;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);background:#fff}
-  .total{font-weight:800}
-  .close-x{position:absolute;right:14px;top:10px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:6px 10px;font-weight:700;z-index:10}
-
-  @media (max-width: 860px){
-    body{padding:10px}
-    .sheet{border-radius:0;max-width:none;width:100%;height:100vh;max-height:none;grid-template-columns:1fr;gap:12px;padding:14px}
-    .sheet .media{min-height:240px}
-    .sheet .actions{position:sticky;bottom:0;padding:10px 0;background:#fff}
-    .close-x{right:10px;top:10px}
+  .qtybar{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin:8px 0
   }
-  body.no-scroll{overflow:hidden}
+  .qtybar input{
+    width:64px;
+    padding:8px 10px;
+    border:1px solid var(--border);
+    border-radius:10px;
+    text-align:center;
+    font-weight:700
+  }
+  .sheet .actions{
+    position:sticky;
+    bottom:-1px;
+    display:flex;
+    gap:10px;
+    align-items:center;
+    margin-top:12px;
+    padding-top:12px;
+    border-top:1px solid var(--border);
+    background:#fff
+  }
+  .total{font-weight:800}
+  .close-x{
+    position:absolute;
+    right:14px;
+    top:10px;
+    background:#fff;
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:6px 10px;
+    font-weight:700;
+    z-index:10
+  }
 
   /* возрастной попап */
-  .age-modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:100}
-  .age-box{background:#fff;padding:20px;max-width:400px;border-radius:12px;text-align:center}
+  .age-modal{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.6);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:100
+  }
+  .age-box{
+    background:#fff;
+    padding:20px;
+    max-width:400px;
+    border-radius:12px;
+    text-align:center
+  }
   .age-box h3{margin:0 0 12px}
   .age-box button{margin-top:12px}
 </style>
@@ -67,7 +248,8 @@
   <header>
     <h2>🛍 Вітрина</h2>
     <div class="tabs">
-      <button data-cat="devices" class="primary">Девайси</button>
+      <button data-cat="used" class="primary">БУ Девайси</button>
+      <button data-cat="devices">Девайси</button>
       <button data-cat="cartridges">Картриджі</button>
       <button data-cat="liquids">Рідини</button>
     </div>
@@ -136,7 +318,7 @@
 const $ = s => document.querySelector(s);
 const nf = new Intl.NumberFormat('uk-UA');
 const money = (v,c='UAH') => `${nf.format(Number(v||0))} ${c}`;
-const state = { items:[], cart:new Map(), current:null, qty:1, category:'devices' };
+const state = { items:[], cart:new Map(), current:null, qty:1, category:'used' };
 const imageOr = (u) => u ? u : 'https://picsum.photos/600';
 
 function saveCart(){localStorage.setItem('cart', JSON.stringify([...state.cart.entries()]));}
@@ -207,8 +389,14 @@ function closeProduct(){$("#productModal").classList.remove('open');document.bod
 function addToCart(item,qty){const cur=state.cart.get(item.sku);if(cur)cur.qty+=qty;else state.cart.set(item.sku,{item,qty});saveCart();rerenderCart();closeProduct();$("#cart").style.display='block';}
 
 async function loadCatalog(){
-  try{const r=await fetch('/api/catalog');const data=await r.json();state.items=data.items||[];renderGrid();}
-  catch(e){$("#grid").innerHTML='<div class="muted">Не вдалося завантажити каталог.</div>';}
+  try{
+    const r=await fetch('/api/catalog');
+    const data=await r.json();
+    state.items=data.items||[];
+    renderGrid();
+  }catch(e){
+    $("#grid").innerHTML='<div class="muted">Не вдалося завантажити каталог.</div>';
+  }
 }
 
 /* возраст */
@@ -240,11 +428,13 @@ document.querySelectorAll('.tabs button').forEach(b=>{
 
 window.addEventListener('DOMContentLoaded',()=>{
   loadCart();rerenderCart();
-  if(localStorage.getItem('age_ok')==='1'){loadCatalog();}else{showAgeModal();}
+  if(localStorage.getItem('age_ok')==='1'){loadCatalog();}
+  else{showAgeModal();}
 });
 </script>
 </body>
 </html>
+
 
 
 
