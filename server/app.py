@@ -1,4 +1,4 @@
-import os, asyncio, json, time, secrets, mimetypes
+import os, asyncio, json, time, secrets
 from pathlib import Path
 from typing import List, Tuple, Dict, Any
 
@@ -16,21 +16,21 @@ from aiogram.client.default import DefaultBotProperties
 load_dotenv()
 
 BOT_TOKEN        = os.getenv("BOT_TOKEN", "").strip()
-ADMIN_ID         = os.getenv("ADMIN_ID", "").strip()               # chat id для уведомлений (можно тот же, кто /setadmin нажмёт)
-ADMIN_BOT_TOKEN  = os.getenv("ADMIN_BOT_TOKEN", "").strip()        # если хочешь уведомлять другим ботом (опционально)
-ADMIN_CHAT_ID    = os.getenv("ADMIN_CHAT_ID", "").strip()          # куда слать уведомление вторым ботом (опционально)
-ADMIN_SECRET     = os.getenv("ADMIN_SECRET", "").strip()           # секрет для админки (обязателен для POST/DELETE)
+ADMIN_ID         = os.getenv("ADMIN_ID", "").strip()
+ADMIN_BOT_TOKEN  = os.getenv("ADMIN_BOT_TOKEN", "").strip()
+ADMIN_CHAT_ID    = os.getenv("ADMIN_CHAT_ID", "").strip()
+ADMIN_SECRET     = os.getenv("ADMIN_SECRET", "").strip()
 PORT             = int(os.getenv("PORT", "8000"))
 
 # где лежит веб
 BASE_DIR = Path(__file__).resolve().parent
 WEB_DIR  = BASE_DIR / "web"
 
-# база и загрузки (под Render)
-DB_PATH     = os.getenv("DB_PATH", "/tmp/shop.db")
-UPLOAD_DIR  = os.getenv("UPLOAD_DIR", "/data/uploads")
+# база и загрузки (Render)
+DB_PATH    = os.getenv("DB_PATH", "/tmp/shop.db")
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/var/data/uploads")  # постоянный диск Render
 
-# если /data недоступен — падаем в /tmp
+# если /var/data недоступен — падаем в /tmp
 try:
     Path(UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
 except Exception:
@@ -52,8 +52,8 @@ CREATE TABLE IF NOT EXISTS products (
   image_url TEXT,
   description TEXT,
   is_active INTEGER NOT NULL DEFAULT 1,
-  category TEXT DEFAULT 'devices',          -- devices | liquids | cartridges | other
-  stock_status TEXT DEFAULT 'in_stock'      -- in_stock | preorder
+  category TEXT DEFAULT 'devices',
+  stock_status TEXT DEFAULT 'in_stock'
 );
 
 CREATE TABLE IF NOT EXISTS orders (
@@ -87,345 +87,8 @@ async def init_db():
         await d.executescript(CREATE_SQL)
         await d.commit()
 
-async def fetch_products(active_only: bool = True) -> List[Dict[str, Any]]:
-    q = "SELECT sku,title,price,currency,image_url,description,is_active,category,stock_status FROM products"
-    if active_only:
-        q += " WHERE is_active=1"
-    q += " ORDER BY rowid DESC"
-    async with aiosqlite.connect(DB_PATH) as d:
-        cur = await d.execute(q)
-        rows = await cur.fetchall()
-    cols = ["sku","title","price","currency","image_url","description","is_active","category","stock_status"]
-    return [dict(zip(cols, r)) for r in rows]
+asy
 
-async def fetch_product_by_sku(sku: str):
-    async with aiosqlite.connect(DB_PATH) as d:
-        cur = await d.execute(
-            "SELECT sku,title,price,currency,image_url,description,is_active,category,stock_status FROM products WHERE sku=?",
-            (sku,)
-        )
-        r = await cur.fetchone()
-    if not r: return None
-    cols = ["sku","title","price","currency","image_url","description","is_active","category","stock_status"]
-    return dict(zip(cols, r))
-
-async def upsert_product(p: Dict[str, Any]):
-    async with aiosqlite.connect(DB_PATH) as d:
-        await d.execute("""
-          INSERT INTO products (sku,title,price,currency,image_url,description,is_active,category,stock_status)
-          VALUES (?,?,?,?,?,?,?,?,?)
-          ON CONFLICT(sku) DO UPDATE SET
-            title=excluded.title,
-            price=excluded.price,
-            currency=excluded.currency,
-            image_url=excluded.image_url,
-            description=excluded.description,
-            is_active=excluded.is_active,
-            category=excluded.category,
-            stock_status=excluded.stock_status
-        """, (
-            p["sku"], p["title"], int(p["price"]), p.get("currency","UAH"),
-            p.get("image_url"), p.get("description"),
-            1 if p.get("is_active") else 0,
-            p.get("category","devices"),
-            p.get("stock_status","in_stock")
-        ))
-        await d.commit()
-
-async def delete_product(sku: str):
-    async with aiosqlite.connect(DB_PATH) as d:
-        await d.execute("DELETE FROM products WHERE sku=?", (sku,))
-        await d.commit()
-
-async def save_order(user, items: List[Tuple[str, str, int, int]], total: int, currency: str,
-                     city: str, branch: str, receiver: str, phone: str) -> int:
-    async with aiosqlite.connect(DB_PATH) as d:
-        cur = await d.execute(
-            "INSERT INTO orders (tg_user_id,tg_username,tg_name,total,currency,city,branch,receiver,phone,status,created_at) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-            (
-                user.id,
-                f"@{user.username}" if user.username else None,
-                f"{(user.first_name or '').strip()} {(user.last_name or '').strip()}".strip(),
-                total, currency, city, branch, receiver, phone,
-                "new", int(time.time())
-            )
-        )
-        order_id = cur.lastrowid
-        for sku, title, price, qty in items:
-            await d.execute(
-                "INSERT INTO order_items (order_id,product_sku,product_title,price,qty) VALUES (?,?,?,?,?)",
-                (order_id, sku, title, price, qty)
-            )
-        await d.commit()
-    return int(order_id)
-
-async def fetch_orders(limit: int = 50):
-    async with aiosqlite.connect(DB_PATH) as d:
-        cur = await d.execute(
-            "SELECT id,tg_username,tg_name,total,currency,city,branch,receiver,phone,status,created_at "
-            "FROM orders ORDER BY id DESC LIMIT ?", (limit,)
-        )
-        orders = await cur.fetchall()
-        # attach items
-        out = []
-        for o in orders:
-            oid = o[0]
-            cur2 = await d.execute(
-                "SELECT product_sku,product_title,price,qty FROM order_items WHERE order_id=?",
-                (oid,)
-            )
-            items = await cur2.fetchall()
-            out.append({
-                "id": oid,
-                "tg_username": o[1],
-                "tg_name": o[2],
-                "total": o[3],
-                "currency": o[4],
-                "city": o[5],
-                "branch": o[6],
-                "receiver": o[7],
-                "phone": o[8],
-                "status": o[9],
-                "created_at": o[10],
-                "items": [{"sku":i[0],"title":i[1],"price":i[2],"qty":i[3]} for i in items]
-            })
-        return out
-
-# -------------------- Telegram Bot --------------------
-if not BOT_TOKEN:
-    raise SystemExit("BOT_TOKEN не задан")
-
-bot = Bot(BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-dp  = Dispatcher()
-
-async def notify_admin_text(text: str):
-    # 1) отдельным админ-ботом
-    if ADMIN_BOT_TOKEN and ADMIN_CHAT_ID:
-        try:
-            other = Bot(ADMIN_BOT_TOKEN)
-            await other.send_message(int(ADMIN_CHAT_ID), text)
-            await other.session.close()
-            return
-        except Exception:
-            pass
-    # 2) этим же ботом
-    if ADMIN_ID:
-        try:
-            await bot.send_message(int(ADMIN_ID), text)
-        except Exception:
-            pass
-
-@dp.message(Command("start"))
-async def cmd_start(m: Message):
-    kb = [
-        [{"text": "🛍 Вітрина", "web_app": {"url": f"{request_base()}/index.html"}}],
-        [{"text": "🛒 Адмінка", "web_app": {"url": f"{request_base()}/admin.html"}}]
-    ]
-    await m.answer(
-        "Привіт! Відкрий міні-магазин нижче 👇",
-        reply_markup={"inline_keyboard": kb}
-    )
-
-@dp.message(Command("setadmin"))
-async def cmd_setadmin(m: Message):
-    global ADMIN_ID
-    ADMIN_ID = str(m.from_user.id)
-    await m.answer(f"Адмін встановлений: <code>{ADMIN_ID}</code>")
-
-@dp.message(F.web_app_data)
-async def on_webapp_data(m: Message):
-    # Ожидаем JSON от витрины
-    try:
-        data = json.loads(m.web_app_data.data)
-    except Exception:
-        return await m.answer("Не вдалося прочитати дані з вітрини.")
-
-    if data.get("type") != "checkout":
-        return await m.answer("Невідомий тип даних від вітрини.")
-
-    # Собираем позиции строго по нашей БД (цены не доверяем фронту)
-    items_in  = data.get("items", [])
-    items: List[Tuple[str,str,int,int]] = []
-    total = 0
-    currency = "UAH"
-
-    for it in items_in:
-        sku = str(it.get("sku"))
-        qty = int(it.get("qty", 1))
-        row = await fetch_product_by_sku(sku)
-        if not row or qty <= 0:  # неактивный/не найден — игнор
-            continue
-        if not row.get("is_active"):
-            continue
-        items.append((row["sku"], row["title"], int(row["price"]), qty))
-        total += int(row["price"]) * qty
-        currency = row.get("currency","UAH")
-
-    if not items:
-        return await m.answer("Кошик порожній.")
-
-    city     = (data.get("city") or "").strip()
-    branch   = (data.get("branch") or "").strip()
-    receiver = (data.get("receiver") or "").strip()
-    phone    = (data.get("phone") or "").strip()
-
-    # username обязателен
-    if not m.from_user.username:
-        return await m.answer("Для оформлення замовлення потрібен нікнейм у Telegram (username). Додайте його в налаштуваннях Telegram.")
-
-    order_id = await save_order(m.from_user, items, total, currency, city, branch, receiver, phone)
-
-    # Покупателю
-    await m.answer(f"✅ Замовлення №{order_id} успішно оформлено! Ми з вами зв’яжемося для підтвердження.")
-
-    # Админу
-    lines = "\n".join([f"• {t} × {q} = {p*q} {currency}" for _,t,p,q in items])
-    txt = (
-        f"🆕 Нове замовлення №{order_id}\n"
-        f"Покупець: {m.from_user.first_name or ''} {m.from_user.last_name or ''} "
-        f"({('@'+m.from_user.username) if m.from_user.username else '—'})\n"
-        f"ID: {m.from_user.id}\n"
-        f"{lines}\nРазом: {total} {currency}\n"
-        f"Місто: {city}\nВідділення: {branch}\n"
-        f"Отримувач: {receiver} / {phone}"
-    )
-    await notify_admin_text(txt)
-
-# -------------------- HTTP helpers --------------------
-# Нужно для правильных ссылок в /start
-_request_base: str = ""
-
-def request_base() -> str:
-    return _request_base or os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
-
-# -------------------- HTTP API --------------------
-def require_admin(request: web.Request):
-    secret = request.headers.get("X-Admin-Secret") or request.query.get("secret")
-    if not ADMIN_SECRET or secret != ADMIN_SECRET:
-        raise web.HTTPUnauthorized(text="Admin secret required")
-
-async def api_catalog(request: web.Request):
-    category = request.query.get("category")
-    items = await fetch_products(active_only=True)
-    if category:
-        items = [i for i in items if (i.get("category") or "").lower() == category.lower()]
-    return web.json_response({"items": items})
-
-async def api_orders(request: web.Request):
-    require_admin(request)
-    limit = int(request.query.get("limit","50"))
-    data = await fetch_orders(limit=limit)
-    return web.json_response({"orders": data})
-
-async def api_product_upsert(request: web.Request):
-    require_admin(request)
-    try:
-        body = await request.json()
-    except Exception:
-        raise web.HTTPBadRequest(text="bad json")
-
-    required = ["sku","title","price"]
-    for k in required:
-        if not body.get(k):
-            raise web.HTTPBadRequest(text=f"field '{k}' required")
-
-    body.setdefault("currency","UAH")
-    body["is_active"] = 1 if body.get("is_active") in (True,1,"1","true","on") else 0
-    body.setdefault("category","devices")
-    body.setdefault("stock_status","in_stock")
-    await upsert_product(body)
-    return web.json_response({"ok": True})
-
-async def api_product_delete(request: web.Request):
-    require_admin(request)
-    sku = request.match_info.get("sku","")
-    await delete_product(sku)
-    return web.json_response({"ok": True})
-
-async def api_upload(request: web.Request):
-    require_admin(request)
-    reader = await request.multipart()
-    field = await reader.next()
-    if not field or field.name != "file":
-        raise web.HTTPBadRequest(text="file field required")
-
-    filename = field.filename or "upload.bin"
-    ext = (Path(filename).suffix or "").lower()
-    allow = {".jpg",".jpeg",".png",".webp"}
-    if ext not in allow:
-        raise web.HTTPUnsupportedMediaType(text="Allowed: jpg, jpeg, png, webp")
-
-    rnd = secrets.token_hex(8) + ext
-    path = Path(UPLOAD_DIR) / rnd
-    with path.open("wb") as f:
-        while True:
-            chunk = await field.read_chunk()
-            if not chunk: break
-            f.write(chunk)
-
-    url = f"/uploads/{rnd}"
-    return web.json_response({"url": url})
-
-# -------------------- Static pages --------------------
-async def static_index(request: web.Request):
-    return web.FileResponse(WEB_DIR / "index.html")
-
-async def static_admin(request: web.Request):
-    return web.FileResponse(WEB_DIR / "admin.html")
-
-# health
-async def health(request: web.Request):
-    return web.json_response({"ok": True})
-
-# -------------------- Run everything --------------------
-async def start_bot_and_http():
-    # web app
-    app = web.Application()
-    app.router.add_get("/health", health)
-
-    # API (сначала)
-    app.router.add_get("/api/catalog", api_catalog)
-    app.router.add_get("/api/orders",  api_orders)
-    app.router.add_post("/api/product", api_product_upsert)
-    app.router.add_delete("/api/product/{sku}", api_product_delete)
-    app.router.add_post("/api/upload", api_upload)
-
-    # pages
-    app.router.add_get("/", static_index)
-    app.router.add_get("/index.html", static_index)
-    app.router.add_get("/admin.html", static_admin)
-
-    # files
-    app.router.add_static("/uploads/", UPLOAD_DIR)
-    app.router.add_static("/web/", str(WEB_DIR))
-
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", PORT)
-    await site.start()
-    print(f"HTTP on :{PORT}")
-
-    # Telegram menu button -> магазин
-    base = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
-    if base:
-        try:
-            await bot.set_chat_menu_button(
-                menu_button=MenuButtonWebApp(text="🛍 Вітрина", web_app=WebAppInfo(url=f"{base}/index.html"))
-            )
-            print("Menu set to:", f"{base}/index.html")
-        except Exception as e:
-            print("Menu set error:", e)
-
-    # aiogram polling
-    await dp.start_polling(bot)
-
-async def main():
-    await init_db()
-    await start_bot_and_http()
-
-if __name__ == "__main__":
-    asyncio.run(main())
 
 
 
