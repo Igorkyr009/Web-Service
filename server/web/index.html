@@ -63,9 +63,15 @@
     display:block;width:min(520px,100%);max-height:70vh;object-fit:contain;border-radius:12px
   }
   .sheet .content{
-    display:flex;flex-direction:column;gap:10px;
-    padding-top:12px; /* безопасный отступ под изображением */
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    padding-top:24px; /* увеличенный безопасный отступ */
+    position: relative;
+    z-index: 2; /* гарантирует, что текст будет поверх */
+    background: #fff; /* чтобы текст не смешивался с фоном картинки */
   }
+
   .badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid var(--border);background:#fafafa;white-space:nowrap}
   .badge.preorder{border-color:#f59e0b;background:#fffbeb}
   .desc{color:#444;line-height:1.5}
@@ -450,6 +456,7 @@ window.addEventListener('DOMContentLoaded',()=>{
 </script>
 </body>
 </html>
+
 
 
 
