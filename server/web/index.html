@@ -177,10 +177,40 @@ function renderCatalog(cat=""){
   };
 }
 
+<script>
 function renderProduct(sku){
   const p = DATA.find(x=>x.sku===sku);
   const root = $('#root');
   if(!p){ root.innerHTML = `<div class="empty">Товар не знайдено</div>`; return; }
+
+  root.innerHTML = `
+    <a class="back" href="#/catalog${CAT?`?cat=${CAT}`:''}">← Назад</a>
+    <div class="card">
+      <div class="product">
+        <img src="${p.image_url||'https://via.placeholder.com/800?text=No+Image'}" alt="">
+        <div>
+          <h3 style="margin:0 0 6px">${p.title}</h3>
+          <div class="muted" style="margin:0 0 10px">${p.description||''}</div>
+          <div class="muted" style="margin:0 0 10px">Категорія: <b>${p.category||'—'}</b></div>
+          <div class="muted" style="margin:0 0 14px">Статус: <b>${p.availability==='preorder'?'предзамовлення':'в наявності'}</b></div>
+          <div class="row">
+            <b style="font-size:18px">${fmt(p.price,p.currency)}</b>
+            <div>
+              <button id="minus">–</button>
+              <span id="qty" style="display:inline-block;min-width:24px;text-align:center">1</span>
+              <button id="plus">+</button>
+              <button id="add" class="primary">Додати в кошик</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  let q=1; const $qty = $('#qty');
+  $('#minus').onclick = ()=>{ if(q>1){ q--; $qty.textContent=q; } };
+  $('#plus').onclick  = ()=>{ q++; $qty.textContent=q; };
+  $('#add').onclick   = ()=>{ CART.set(sku,(CART.get(sku)||0)+q); saveCart(); updCount(); alert('Додано'); };
+}
+</script>
 
   root.innerHTML = `
     <a class="back" href="#/catalog${CAT?`?cat=${CAT}`:''}">← Назад</a>
@@ -364,6 +394,7 @@ $('#btnCheckout').onclick = ()=>{ location.hash = '#/checkout'; };
 </script>
 </body>
 </html>
+
 
 
 
