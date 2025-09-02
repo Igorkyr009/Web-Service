@@ -10,7 +10,6 @@
   }
   *{box-sizing:border-box}
   body{font-family:system-ui,Segoe UI,Roboto,sans-serif;margin:0 auto;max-width:980px;padding:16px;background:#fff;color:#111}
-  /* не скроллим фон при открытых модалках */
   body.no-scroll{overflow:hidden}
 
   button{padding:12px 16px;border-radius:14px;border:1px solid var(--border);background:#fff;cursor:pointer;font-weight:700}
@@ -52,12 +51,21 @@
   /* --- Модал товара --- */
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:0;z-index:50}
   .modal.open{display:flex}
-  .sheet{background:#fff;border-radius:18px;max-width:860px;width:100%;border:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:20px;max-height:92vh;overflow:auto;position:relative}
-  /* безопасные отступы, чтобы контент не «наезжал» на изображение */
-  .sheet .media{display:flex;align-items:flex-start;justify-content:center;background:#f7f7f8;border-radius:12px;min-height:320px;padding-top:16px;padding-bottom:10px}
-  .sheet .media img{display:block;width:min(520px,100%);max-height:70vh;object-fit:contain;border-radius:12px}
-  .sheet .content{display:flex;flex-direction:column;gap:10px;padding-top:12px}
-
+  .sheet{
+    background:#fff;border-radius:18px;max-width:860px;width:100%;border:1px solid var(--border);
+    display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:20px;max-height:92vh;overflow:auto;position:relative
+  }
+  .sheet .media{
+    display:flex;align-items:flex-start;justify-content:center;background:#f7f7f8;border-radius:12px;
+    min-height:320px;padding-top:16px;padding-bottom:10px
+  }
+  .sheet .media img{
+    display:block;width:min(520px,100%);max-height:70vh;object-fit:contain;border-radius:12px
+  }
+  .sheet .content{
+    display:flex;flex-direction:column;gap:10px;
+    padding-top:12px; /* безопасный отступ под изображением */
+  }
   .badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid var(--border);background:#fafafa;white-space:nowrap}
   .badge.preorder{border-color:#f59e0b;background:#fffbeb}
   .desc{color:#444;line-height:1.5}
@@ -77,12 +85,10 @@
     .close-x{right:10px;top:10px}
   }
 
-  /* --- Возраст 18+ (ровная, центрированная модалка) --- */
-  .age-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:16px;z-index:100;background:rgba(0,0,0,.55)}
-  .age-modal.open{display:flex}
+  /* --- Возраст 18+ --- */
+  .age-modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;z-index:100;background:rgba(0,0,0,.55)}
   .age-box{width:100%;max-width:360px;background:#fff;border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:16px;text-align:center}
   .age-box h3{margin:4px 0 10px}
-  .age-box p{margin:0 0 6px;color:#444;font-size:14px}
   .age-row{display:flex;align-items:center;justify-content:center;gap:8px;margin:8px 0}
   .age-row input{width:18px;height:18px}
 
@@ -115,7 +121,6 @@
       <div class="back">
         <button id="btnBack">← Назад</button>
         <div class="tabs" id="tabs">
-          <!-- динамически подсветим активную -->
           <button data-cat="used">БУ Девайси</button>
           <button data-cat="devices">Девайси</button>
           <button data-cat="cartridges">Картриджі</button>
@@ -173,11 +178,10 @@
     </div>
   </div>
 
-  <!-- возраст 18+ — компактное окно с чекбоксом -->
+  <!-- возраст 18+ (каждый раз при входе) -->
   <div id="ageModal" class="age-modal">
     <div class="age-box" onclick="event.stopPropagation()">
       <h3>Підтвердження віку</h3>
-      <p>Вам вже виповнилось 18 років?</p>
       <div class="age-row">
         <input type="checkbox" id="ageCheck" aria-label="Мені 18+">
         <label for="ageCheck">Мені вже є 18 років</label>
@@ -229,17 +233,21 @@
 const $ = s => document.querySelector(s);
 const nf = new Intl.NumberFormat('uk-UA');
 const money = (v,c='UAH') => `${nf.format(Number(v||0))} ${c}`;
-const state = { items:[], cart:new Map(), current:null, qty:1, category:null };
+const state = { items:[], cart:new Map(), current:null, qty:1, category:null, ageOk:false };
 const imageOr = (u) => u ? u : 'https://picsum.photos/600';
 
 /* ===== helpers ===== */
 function show(el){ el.classList.add('active'); }
 function hide(el){ el.classList.remove('active'); }
-function goHome(){ hide($('#screenShop')); show($('#screenHome')); }
+function goHome(){
+  hide($('#screenShop'));
+  show($('#screenHome'));
+  // сбрасываем подтверждение возраста при каждом возвращении на главную
+  state.ageOk = false;
+  showAgeModal();
+}
 
-/* требуем подтверждение возраста перед действиями */
-function ageOk(){ return localStorage.getItem('age_ok')==='1'; }
-function requireAge(){ if(!ageOk()){ showAgeModal(); return false; } return true; }
+function requireAge(){ if(!state.ageOk){ showAgeModal(); return false; } return true; }
 
 function goShop(cat){
   if(!requireAge()) return;
@@ -378,30 +386,30 @@ async function submitCheckout(){
   closeCheckout();
 }
 
-/* ===== age (18+) ===== */
+/* ===== age (18+) — всегда спрашиваем при входе ===== */
 function showAgeModal(){
   const m=$("#ageModal");
-  m.classList.add('open');
+  $("#ageCheck").checked = false;
+  $("#btnAgeConfirm").disabled = true;
+  m.style.display='flex';
   document.body.classList.add('no-scroll');
 }
 function hideAgeModal(){
   const m=$("#ageModal");
-  m.classList.remove('open');
+  m.style.display='none';
   document.body.classList.remove('no-scroll');
 }
 
 /* ===== wiring ===== */
 window.addEventListener('DOMContentLoaded',()=>{
-  // показать возрастную модалку, если ещё нет подтверждения
-  if(!ageOk()){ showAgeModal(); }
+  // показываем возрастную модалку КАЖДЫЙ раз при открытии витрины
+  showAgeModal();
 
   // логика чекбокса 18+
   const ageCheck = document.getElementById('ageCheck');
   const btnAgeConfirm = document.getElementById('btnAgeConfirm');
-  if(ageCheck && btnAgeConfirm){
-    ageCheck.addEventListener('change',()=>{ btnAgeConfirm.disabled = !ageCheck.checked; });
-    btnAgeConfirm.addEventListener('click',()=>{ localStorage.setItem('age_ok','1'); hideAgeModal(); });
-  }
+  ageCheck.addEventListener('change',()=>{ btnAgeConfirm.disabled = !ageCheck.checked; });
+  btnAgeConfirm.addEventListener('click',()=>{ state.ageOk = true; hideAgeModal(); });
 
   // стартовые большие кнопки
   document.querySelectorAll('[data-go]').forEach(b=>{
@@ -442,6 +450,8 @@ window.addEventListener('DOMContentLoaded',()=>{
 </script>
 </body>
 </html>
+
+
 
 
 
