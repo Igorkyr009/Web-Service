@@ -19,10 +19,7 @@
   .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
   .price{font-weight:600}
   .tabs{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
-
-  /* cart */
-  .cart{position:fixed;right:16px;bottom:16px;left:16px;max-width:980px;margin-inline:auto;
-        border:1px solid var(--border);background:#fff;border-radius:14px;padding:12px;box-shadow:0 10px 30px rgba(0,0,0,.08);display:none}
+  .cart{position:fixed;right:16px;bottom:16px;left:16px;max-width:980px;margin-inline:auto;border:1px solid var(--border);background:#fff;border-radius:14px;padding:12px;box-shadow:0 10px 30px rgba(0,0,0,.08);display:none}
   .cart h4{margin:0 0 10px}
   .cart-item{display:grid;grid-template-columns:56px 1fr auto auto;gap:10px;align-items:center;padding:8px 0;border-top:1px dashed #eee}
   .cart-item:first-child{border-top:none}
@@ -30,16 +27,12 @@
   .qty{display:flex;align-items:center;gap:6px}
   .qty button{width:28px;height:28px;padding:0}
   .cart-footer{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
-
-  /* modal */
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
   .modal.open{display:flex}
   .sheet{background:#fff;border-radius:16px;max-width:680px;width:100%;padding:16px;border:1px solid var(--border)}
   .sheet .row{align-items:start}
   .sheet img{width:260px;max-width:40vw;aspect-ratio:1/1;object-fit:cover;border-radius:12px}
   .sheet h3{margin:0 0 8px}
-
-  /* age gate */
   .age-lines{display:flex;flex-direction:column;gap:10px;margin:10px 0 16px;font-size:14px}
   .age-lines label{display:flex;gap:8px;align-items:flex-start}
 </style>
@@ -59,7 +52,6 @@
 
   <div id="grid" class="grid"></div>
 
-  <!-- cart -->
   <div id="cart" class="cart">
     <h4>Кошик</h4>
     <div id="cartList"></div>
@@ -72,7 +64,6 @@
     </div>
   </div>
 
-  <!-- product modal -->
   <div id="productModal" class="modal"><div class="sheet">
     <div class="row" style="gap:16px">
       <img id="pImg" src="" alt="">
@@ -95,7 +86,6 @@
     </div>
   </div></div>
 
-  <!-- age gate -->
   <div id="ageGate" class="modal"><div class="sheet" style="max-width:520px">
     <h3>Підтвердження віку</h3>
     <div class="age-lines">
@@ -110,7 +100,8 @@ const $ = s => document.querySelector(s);
 const fmt = (p,c) => `${p} ${c||'UAH'}`;
 const state = { items:[], cart:new Map(), current:null, qty:1, category:'devices' };
 
-const imageOr = (u) => (u && u.startsWith('http')) ? u : 'https://picsum.photos/600';
+// ФИКС: принимаем относительные URL из /uploads/...
+const imageOr = (u) => u ? u : 'https://picsum.photos/600';
 
 function saveCart(){ try{
   const plain = [...state.cart.entries()].map(([k,v])=>[k,{item:v.item,qty:v.qty}]);
@@ -219,7 +210,6 @@ function doCheckout(){
   Telegram.WebApp.close();
 }
 
-// wiring
 $("#btnCart").onclick = ()=>{ $("#cart").style.display='block'; rerenderCart(); };
 $("#btnCartClose").onclick = ()=>{ $("#cart").style.display='none'; };
 $("#btnCartCheckout").onclick = doCheckout;
@@ -239,7 +229,6 @@ document.querySelectorAll('.tabs button').forEach(b=>{
   };
 });
 
-// age gate
 function refreshAgeBtn(){ $("#btnAgeOk").disabled = !($("#chk18").checked && $("#chkRules").checked); }
 $("#chk18").onchange = refreshAgeBtn;
 $("#chkRules").onchange = refreshAgeBtn;
@@ -252,6 +241,8 @@ window.addEventListener('DOMContentLoaded', ()=>{
 </script>
 </body>
 </html>
+
+
 
 
 
