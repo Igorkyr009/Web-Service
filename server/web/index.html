@@ -1,338 +1,371 @@
-<!doctype html><html lang="uk">
+<!doctype html>
+<html lang="uk">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Магазин</title>
-
 <style>
-  *,*::before,*::after{box-sizing:border-box}
-  body{font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;margin:0 auto;max-width:980px;padding:16px;background:#fafafa;color:#0f172a}
-  h2,h3,h4{margin:0 0 10px}
-  a{color:inherit;text-decoration:none}
-  header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px}
-  .actions{display:flex;gap:8px}
-  button{padding:10px 12px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;cursor:pointer}
-  .primary{background:#0ea5e9;border-color:#0ea5e9;color:#fff}
-  .muted{color:#64748b}
-  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px}
-  .tab{padding:8px 12px;border:1px solid #e5e7eb;border-radius:999px}
-  .tab.active{background:#111827;border-color:#111827;color:#fff}
-  #root{min-height:50vh}
-
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
-  .card{border:1px solid #e5e7eb;border-radius:14px;background:#fff;padding:12px}
-  .card img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:10px;background:#f3f4f6}
-  .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
-  .back{display:inline-block;margin:8px 0}
-
-  .form{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .form .full{grid-column:1 / -1}
-  input,textarea{width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:12px;background:#fff}
-
-  .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.35);z-index:50}
-  .modal.show{display:flex}
-  .sheet{width:min(92vw,520px);max-height:80vh;overflow:auto;background:#fff;border-radius:16px;border:1px solid #e5e7eb;padding:14px}
-  .list{display:grid;gap:8px;margin:8px 0}
-  .empty{padding:24px;border:1px dashed #e5e7eb;background:#fff;border-radius:14px;text-align:center;color:#64748b}
-
-  .product{display:grid;grid-template-columns:340px 1fr;gap:16px}
-  .product img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:12px;background:#f3f4f6}
-  @media (max-width:860px){ .product{grid-template-columns:1fr} }
-
-  .gate{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:16px;z-index:100}
-  .gate.show{display:flex}
-  .gate .box{width:min(94vw,640px);background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:16px}
-  .checks{display:grid;gap:8px;margin:12px 0}
-  .checks label{display:flex;gap:10px;align-items:flex-start;cursor:pointer}
-  .gate .rowend{display:flex;justify-content:flex-end;gap:8px}
-  @media (max-width:760px){ .form{grid-template-columns:1fr} }
+  :root{
+    --bg:#0b0c10; --card:#111318; --muted:#9aa3af; --text:#f5f7fa;
+    --accent:#0ea5e9; --accent-2:#22c55e; --danger:#ef4444;
+    --border:#1f2430;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,Segoe UI,Roboto,Arial}
+  header{position:sticky;top:0;background:rgba(11,12,16,.8);backdrop-filter:blur(6px);z-index:10;border-bottom:1px solid var(--border)}
+  .wrap{max-width:980px;margin:0 auto;padding:14px 16px}
+  .row{display:flex;gap:8px;align-items:center;justify-content:space-between}
+  h1,h2,h3{margin:0}
+  .btn{padding:10px 14px;border-radius:12px;border:1px solid var(--border);background:#151822;color:var(--text);cursor:pointer}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.success{background:var(--accent-2);border-color:var(--accent-2);color:#06120a}
+  .btn.ghost{background:transparent}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;padding:16px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:8px}
+  .card img{width:100%;border-radius:12px;aspect-ratio:1/1;object-fit:cover;background:#0f1218}
+  .muted{color:var(--muted);font-size:14px}
+  .price-row{display:flex;justify-content:space-between;align-items:center;margin-top:2px}
+  .chip{font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);background:#161a22;color:#b7c0cc}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap}
+  .tabs .btn.active{background:#1b2130}
+  .hidden{display:none}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:16px;z-index:40}
+  .modal .box{background:var(--card);border:1px solid var(--border);border-radius:16px;max-width:560px;width:100%;padding:16px}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:10px;border-bottom:1px solid var(--border);text-align:left}
+  .form{display:grid;gap:10px}
+  input,select,textarea{width:100%;padding:10px;border-radius:12px;border:1px solid var(--border);background:#0f1218;color:var(--text)}
+  label{font-size:14px;color:#c9d2de}
+  .agree{display:flex;gap:10px;align-items:flex-start}
+  .catbar{padding:8px 16px;border-bottom:1px solid var(--border)}
+  .success{padding:40px 16px;text-align:center}
 </style>
-
 <body>
+
 <header>
-  <h2>🛍 Магазин</h2>
-  <div class="actions">
-    <button id="btnCart">🧺 Кошик (<span id="c">0</span>)</button>
-    <button id="btnBuy" class="primary">Оформити</button>
+  <div class="wrap row">
+    <h3>🛍 Вітрина</h3>
+    <div class="row" style="gap:8px">
+      <button id="btnCart" class="btn">🧺 Кошик (<span id="cnt">0</span>)</button>
+      <button id="btnBuy" class="btn primary">Оформити</button>
+    </div>
+  </div>
+  <div class="catbar">
+    <div class="wrap tabs">
+      <button class="btn ghost tab" data-cat="all">Усі</button>
+      <button class="btn ghost tab" data-cat="devices">Девайси</button>
+      <button class="btn ghost tab" data-cat="liquids">Рідини</button>
+      <button class="btn ghost tab" data-cat="cartridges">Картриджі</button>
+    </div>
   </div>
 </header>
 
-<div class="tabs" id="tabs"></div>
-<div id="root"></div>
+<div id="view-catalog" class="wrap">
+  <div id="grid" class="grid"></div>
+</div>
 
-<!-- Окно корзины -->
-<div class="modal" id="modalCart">
-  <div class="sheet">
-    <h3>Кошик</h3>
-    <div id="cartList" class="list"></div>
-    <div class="row" style="margin-top:8px">
-      <div id="cartTotal" class="muted"></div>
+<div id="view-product" class="wrap hidden">
+  <button class="btn ghost" onclick="go('#/catalog')">← Назад</button>
+  <div id="prod"></div>
+</div>
+
+<div id="view-checkout" class="wrap hidden">
+  <h3>Оформлення замовлення</h3>
+  <div class="form" style="margin-top:12px">
+    <div class="row" style="gap:12px">
+      <div style="flex:1">
+        <label>Місто</label>
+        <input id="city" placeholder="Київ">
+      </div>
+      <div style="flex:1">
+        <label>Відділення Нової Пошти</label>
+        <input id="branch" placeholder="Відділення №25">
+      </div>
+    </div>
+    <div class="row" style="gap:12px">
+      <div style="flex:1">
+        <label>ПІБ отримувача</label>
+        <input id="receiver" placeholder="Іван Іванов">
+      </div>
+      <div style="flex:1">
+        <label>Телефон</label>
+        <input id="phone" placeholder="+380..." inputmode="tel">
+      </div>
+    </div>
+    <div>
+      <label>Ваш нік у Telegram (обов'язково, з @)</label>
+      <input id="username" placeholder="@username">
+    </div>
+    <div class="agree">
+      <input type="checkbox" id="agree18">
+      <label for="agree18">Мені виповнилося 18 років.</label>
+    </div>
+    <div class="agree">
+      <input type="checkbox" id="acceptRules">
+      <label for="acceptRules">Погоджуюсь з правилами магазину.</label>
+    </div>
+    <div class="row" style="justify-content:space-between">
+      <div class="muted">Після відправки замовлення ми зв'яжемося з вами в Telegram.</div>
+      <button id="btnSubmit" class="btn success">Надіслати замовлення</button>
+    </div>
+  </div>
+</div>
+
+<div id="view-success" class="wrap hidden">
+  <div class="success">
+    <h2>✅ Замовлення прийнято</h2>
+    <p class="muted">Дякуємо! Ми скоро зв'яжемося з вами щодо доставки.</p>
+    <button class="btn" onclick="go('#/catalog')">Повернутись до каталогу</button>
+  </div>
+</div>
+
+<!-- Кошик -->
+<div id="modal" class="modal">
+  <div class="box">
+    <div class="row"><h3>Кошик</h3><button class="btn" onclick="closeCart()">✕</button></div>
+    <div id="cartBody" style="margin-top:12px"></div>
+    <div class="row" style="margin-top:12px">
+      <div><b>Всього:</b> <span id="sum">0</span> <span id="cur">UAH</span></div>
       <div>
-        <button id="goCheckout" class="primary">До оформлення</button>
-        <button id="closeCart">Закрити</button>
+        <button class="btn" onclick="clearCart()">Очистити</button>
+        <button class="btn primary" onclick="go('#/checkout');closeCart()">Оформити</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Экран согласия 18+ -->
-<div class="gate" id="gate">
+<!-- First-run 18+ popup -->
+<div id="consent" class="modal">
   <div class="box">
     <h3>Підтвердження</h3>
-    <div class="muted">Щоб продовжити, підтвердіть, що вам є 18 років, і ви погоджуєтесь з правилами магазину.</div>
-    <div class="checks">
-      <label><input type="checkbox" id="ch18"> Мені виповнилося 18 років</label>
-      <label><input type="checkbox" id="chrules"> Я приймаю правила користування та політику</label>
-    </div>
-    <div class="rowend">
-      <button id="gateAccept" class="primary">Прийняти</button>
+    <p class="muted">Щоб продовжити, підтвердіть, що вам 18+ і ви приймаєте правила магазину.</p>
+    <div class="agree"><input id="c18" type="checkbox"><label for="c18">Мені 18+</label></div>
+    <div class="agree"><input id="cru" type="checkbox"><label for="cru">Приймаю правила</label></div>
+    <div class="row" style="justify-content:flex-end;margin-top:10px">
+      <button class="btn primary" onclick="confirmConsent()">Підтвердити</button>
     </div>
   </div>
 </div>
 
 <script>
-const $ = sel => document.querySelector(sel);
-const LS_CART    = "tgshop.cart.v1";
-const LS_CONSENT = "tgshop.consent.v2";
-let DATA = [];
-let CART = new Map();
-let CAT  = "";   // текущая категория
+const $ = s => document.querySelector(s);
+const cartKey = 'cart_v1';
+let cart = {}; // { sku: qty }
+let catalog = []; // с сервера
+let currentCat = 'all';
 
-const CATS = [
-  {id:"",            title:"Усі"},
-  {id:"devices",     title:"Пристрої"},
-  {id:"liquids",     title:"Рідини"},
-  {id:"cartridges",  title:"Картриджі"},
-];
-
-function inTg(){ try{ return !!(window.Telegram && Telegram.WebApp); }catch{ return false; } }
-
-function loadCart(){
-  try{
-    const raw = localStorage.getItem(LS_CART);
-    CART = new Map(raw ? JSON.parse(raw) : []);
-  }catch{
-    CART = new Map();
-  }
-}
-function saveCart(){
-  try{ localStorage.setItem(LS_CART, JSON.stringify([...CART.entries()])); }catch{}
-}
-function updCount(){
-  let n=0; for(const q of CART.values()) n+=q;
-  $('#c').textContent = n;
-}
+function saveCart(){ localStorage.setItem(cartKey, JSON.stringify(cart)); renderCount(); }
+function loadCart(){ try{ cart = JSON.parse(localStorage.getItem(cartKey) || '{}'); }catch(e){ cart = {}; } }
+function renderCount(){ $('#cnt').textContent = Object.values(cart).reduce((a,b)=>a+b,0); }
 
 function fmt(p,c){ return `${p} ${c||'UAH'}`; }
 
-async function fetchCatalog(){
-  const r = await fetch('/api/catalog');
-  const j = await r.json();
-  DATA = j.items || [];
-}
+function go(hash){ location.hash = hash; }
 
-function renderTabs(){
-  const el = $('#tabs');
-  el.innerHTML = CATS.map(x=>`<a class="tab ${CAT===x.id?'active':''}" data-id="${x.id}" href="#/catalog${x.id?('?cat='+x.id):''}">${x.title}</a>`).join('');
-  [...el.querySelectorAll('.tab')].forEach(a=>{
-    a.onclick = (e)=>{ e.preventDefault(); CAT=a.dataset.id; renderCatalog(); }
-  });
-}
-
-function renderCatalog(){
-  renderTabs();
-  const list = (CAT? DATA.filter(x=>x.category===CAT) : DATA);
-  const root = $('#root');
-  if(!list.length){ root.innerHTML = `<div class="empty">Немає товарів</div>`; return; }
-  root.innerHTML = `<div class="grid">` + list.map(p=>`
-    <div class="card">
-      <img src="${p.image_url||'https://via.placeholder.com/800?text=No+Image'}" alt="">
-      <h4 style="margin:8px 0 6px">${p.title}</h4>
-      <div class="muted" style="min-height:40px">${p.description||''}</div>
-      <div class="row" style="margin-top:8px">
-        <b>${fmt(p.price,p.currency)}</b>
-        <div>
-          <button data-sku="${p.sku}" class="toCart">Додати</button>
-          <a class="primary" href="#/product/${encodeURIComponent(p.sku)}">Детальніше</a>
-        </div>
-      </div>
-    </div>
-  `).join('') + `</div>`;
-  [...root.querySelectorAll('.toCart')].forEach(b=>{
-    b.onclick = ()=>{ const sku=b.dataset.sku; CART.set(sku,(CART.get(sku)||0)+1); saveCart(); updCount(); }
-  });
-}
-
-function renderProduct(sku){
-  const p = DATA.find(x=>x.sku===sku);
-  const root = $('#root');
-  if(!p){ root.innerHTML = `<div class="empty">Товар не знайдено</div>`; return; }
-  root.innerHTML = `
-    <a class="back" href="#/catalog${CAT?`?cat=${CAT}`:''}">← Назад</a>
-    <div class="card">
-      <div class="product">
-        <img src="${p.image_url||'https://via.placeholder.com/800?text=No+Image'}" alt="">
-        <div>
-          <h3 style="margin:0 0 6px">${p.title}</h3>
-          <div class="muted" style="margin:0 0 10px">${p.description||''}</div>
-          <div class="muted" style="margin:0 0 10px">Категорія: <b>${p.category||'—'}</b></div>
-          <div class="muted" style="margin:0 0 14px">Статус: <b>${p.availability==='preorder'?'предзамовлення':'в наявності'}</b></div>
-          <div class="row">
-            <b style="font-size:18px">${fmt(p.price,p.currency)}</b>
-            <div>
-              <button id="minus">–</button>
-              <span id="qty" style="display:inline-block;min-width:24px;text-align:center">1</span>
-              <button id="plus">+</button>
-              <button id="add" class="primary">Додати в кошик</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>`;
-  let q=1; const $qty = $('#qty');
-  $('#minus').onclick = ()=>{ if(q>1){ q--; $qty.textContent=q; } };
-  $('#plus').onclick  = ()=>{ q++; $qty.textContent=q; };
-  $('#add').onclick   = ()=>{ CART.set(sku,(CART.get(sku)||0)+q); saveCart(); updCount(); alert('Додано'); };
-}
-
-function renderCheckout(){
-  const items=[...CART.entries()].map(([sku,qty])=>{
-    const p=DATA.find(x=>x.sku===sku); return p?{...p,qty}:null;
-  }).filter(Boolean);
-  const root=$('#root');
-  if(!items.length){
-    root.innerHTML = `<div class="empty">Кошик порожній</div>`;
-    return;
+function setView(id){
+  for (const v of ['view-catalog','view-product','view-checkout','view-success']) {
+    $('#'+v).classList.add('hidden');
   }
-  const total = items.reduce((s,p)=>s+p.price*p.qty,0);
-  root.innerHTML = `
-    <div class="card">
-      <h3>Оформлення</h3>
-      <div class="list" id="sum">
-        ${items.map(p=>`<div class="row"><div>${p.title} × ${p.qty}</div><b>${fmt(p.price*p.qty,p.currency)}</b></div>`).join('')}
-        <div class="row" style="border-top:1px solid #e5e7eb;padding-top:8px"><div><b>Разом</b></div><b>${fmt(total,items[0].currency)}</b></div>
-      </div>
-      <div class="form" style="margin-top:10px">
-        <div><label class="muted">Місто<input id="city" placeholder="Київ"></label></div>
-        <div><label class="muted">Відділення НП<input id="branch" placeholder="№25"></label></div>
-        <div><label class="muted">ПІБ отримувача<input id="receiver" placeholder="Іван Іванов"></label></div>
-        <div><label class="muted">Телефон<input id="phone" placeholder="+380..."></label></div>
-        <div class="full"><label class="muted">Нік у Telegram (обовʼязково)<input id="username" placeholder="@username"></label></div>
-      </div>
-      <div class="row" style="margin-top:10px">
-        <div class="muted">Після надсилання ми звʼяжемося з вами для підтвердження.</div>
-        <button id="confirm" class="primary">Надіслати замовлення</button>
-      </div>
-    </div>`;
-  $('#confirm').onclick = ()=>{
-    if(!CART.size){ alert('Кошик порожній'); return; }
-    const city=$('#city').value.trim(),
-          branch=$('#branch').value.trim(),
-          receiver=$('#receiver').value.trim(),
-          phone=$('#phone').value.trim(),
-          username=$('#username').value.trim();
-    if(!city||!branch||!receiver||!phone){ alert('Заповніть усі поля'); return; }
-    if(!/^@[\w\d_]{3,}$/.test(username)){ alert('Вкажіть нік у Telegram (починається з @)'); return; }
-
-    const payload = {
-      type:'checkout',
-      items:[...CART.entries()].map(([sku,qty])=>({sku,qty})),
-      city,branch,receiver,phone,username
-    };
-
-    if(!inTg()){
-      alert('Щоб надіслати замовлення продавцю, відкрийте цю сторінку саме в Telegram (міні-додаток) і натисніть «Надіслати».');
-      return;
-    }
-    try{ Telegram.WebApp.ready(); }catch{}
-    try{ Telegram.WebApp.sendData(JSON.stringify(payload)); }catch(e){ console.error(e); alert('Не вдалось надіслати.'); return; }
-
-    renderSuccess();
-    CART.clear(); saveCart(); updCount();
-    setTimeout(()=>{ try{ Telegram.WebApp.close(); }catch{} }, 1200);
-  };
-}
-
-function renderSuccess(){
-  $('#root').innerHTML = `
-    <div class="card" style="text-align:center">
-      <h3>✅ Ваш заказ успешно оформлен</h3>
-      <div class="muted">Дякуємо! Ми скоро з вами звʼяжемося.</div>
-    </div>`;
+  $(id).classList.remove('hidden');
 }
 
 function openCart(){
-  const items=[...CART.entries()].map(([sku,qty])=>{
-    const p=DATA.find(x=>x.sku===sku); return p?{...p,qty}:null;
-  }).filter(Boolean);
-  const list=$('#cartList');
-  const totalEl=$('#cartTotal');
-  if(!items.length){
-    list.innerHTML = `<div class="empty">Порожньо</div>`;
-    totalEl.textContent = '';
-  }else{
-    list.innerHTML = items.map(p=>`
-      <div class="row">
-        <div>${p.title} × ${p.qty}</div>
-        <div>
-          <button data-sku="${p.sku}" class="minus">–</button>
-          <button data-sku="${p.sku}" class="plus">+</button>
-          <b>${fmt(p.price*p.qty,p.currency)}</b>
-        </div>
-      </div>
-    `).join('');
-    const total = items.reduce((s,p)=>s+p.price*p.qty,0);
-    totalEl.textContent = `Разом: ${fmt(total, items[0].currency)}`;
-    list.querySelectorAll('.minus').forEach(b=>b.onclick=()=>{
-      const sku=b.dataset.sku; const q=CART.get(sku)||0; if(q>1) CART.set(sku,q-1); else CART.delete(sku); saveCart(); updCount(); openCart();
-    });
-    list.querySelectorAll('.plus').forEach(b=>b.onclick=()=>{
-      const sku=b.dataset.sku; CART.set(sku,(CART.get(sku)||0)+1); saveCart(); updCount(); openCart();
-    });
+  renderCart();
+  $('#modal').style.display = 'flex';
+}
+function closeCart(){ $('#modal').style.display = 'none'; }
+
+function renderCart(){
+  const body = $('#cartBody');
+  if (!Object.keys(cart).length){ body.innerHTML = '<div class="muted">Порожньо</div>'; $('#sum').textContent='0'; return; }
+  let html = '<table><thead><tr><th>Товар</th><th>К-сть</th><th>Ціна</th><th></th></tr></thead><tbody>';
+  let sum = 0, currency = 'UAH';
+  for (const [sku, qty] of Object.entries(cart)){
+    const p = catalog.find(x=>x.sku===sku);
+    if (!p) continue;
+    sum += p.price * qty; currency = p.currency || currency;
+    html += `<tr>
+      <td>${p.title}</td>
+      <td>
+        <button class="btn" onclick="dec('${sku}')">−</button>
+        <b style="padding:0 8px">${qty}</b>
+        <button class="btn" onclick="inc('${sku}')">+</button>
+      </td>
+      <td>${fmt(p.price*qty,p.currency)}</td>
+      <td><button class="btn" onclick="del('${sku}')">🗑</button></td>
+    </tr>`;
   }
-  $('#modalCart').classList.add('show');
+  html += '</tbody></table>';
+  body.innerHTML = html;
+  $('#sum').textContent = sum; $('#cur').textContent = currency;
 }
 
-function closeCart(){ $('#modalCart').classList.remove('show'); }
+function inc(sku){ cart[sku]=(cart[sku]||0)+1; saveCart(); renderCart(); }
+function dec(sku){ if(!cart[sku]) return; cart[sku]-=1; if(cart[sku]<=0) delete cart[sku]; saveCart(); renderCart(); }
+function del(sku){ delete cart[sku]; saveCart(); renderCart(); }
+function clearCart(){ cart={}; saveCart(); renderCart(); }
 
-async function router(){
-  // согласие 18+
-  const accepted = localStorage.getItem(LS_CONSENT) === '1';
-  $('#gate').classList.toggle('show', !accepted);
+function productCard(p){
+  const chip = p.availability==='preorder' ? '<span class="chip">Передзамовлення</span>' : '<span class="chip">В наявності</span>';
+  const img = p.image_url || 'https://picsum.photos/seed/' + encodeURIComponent(p.sku) + '/600/600';
+  return `<div class="card">
+    <img src="${img}" alt="">
+    <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <div><b>${p.title}</b><div class="muted">${chip}</div></div>
+      <div class="muted">${fmt(p.price,p.currency)}</div>
+    </div>
+    <div class="row">
+      <button class="btn" onclick="add('${p.sku}')">Додати</button>
+      <button class="btn primary" onclick="go('#/p/${encodeURIComponent(p.sku)}')">Докладніше</button>
+    </div>
+  </div>`;
+}
 
-  const h = location.hash || "#/catalog";
-  const [_, route, arg] = h.split('/');
-  if(route==='product'){ renderProduct(decodeURIComponent(arg||"")); return; }
-  if(route==='checkout'){ renderCheckout(); return; }
+function add(sku){ cart[sku]=(cart[sku]||0)+1; saveCart(); }
 
-  // каталог
-  const url = new URL(location.href);
-  CAT = url.searchParams.get('cat') || "";
-  if(!DATA.length){ await fetchCatalog(); }
+function renderCatalog(){
+  const grid = $('#grid');
+  let items = catalog.filter(x=>x.is_active);
+  if (currentCat!=='all') items = items.filter(x=>x.category===currentCat);
+  grid.innerHTML = items.map(productCard).join('');
+}
+
+function renderProduct(sku){
+  const p = catalog.find(x=>x.sku===sku);
+  if (!p){ $('#prod').innerHTML = '<div class="muted">Товар не знайдено</div>'; return; }
+  const img = p.image_url || 'https://picsum.photos/seed/' + encodeURIComponent(p.sku) + '/900/900';
+  $('#prod').innerHTML = `
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;align-items:start">
+      <img src="${img}" style="width:100%;border-radius:16px;aspect-ratio:1/1;object-fit:cover">
+      <div>
+        <h2>${p.title}</h2>
+        <div class="muted" style="margin:4px 0 10px">${p.availability==='preorder'?'Передзамовлення':'В наявності'}</div>
+        <div><b style="font-size:20px">${fmt(p.price,p.currency)}</b></div>
+        <p class="muted" style="margin:12px 0">${p.description||''}</p>
+        <div class="row" style="gap:8px">
+          <button class="btn" onclick="add('${p.sku}')">Додати в кошик</button>
+          <button class="btn primary" onclick="go('#/checkout')">Оформити</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function wants(hash){ return (location.hash||'#/catalog')===hash; }
+
+function route(){
+  const h = (location.hash||'#/catalog');
+  if (h.startsWith('#/p/')){
+    setView('view-product');
+    const sku = decodeURIComponent(h.split('/p/')[1]);
+    renderProduct(sku);
+  } else if (h==="#/checkout"){
+    setView('view-checkout');
+    prefillUser();
+  } else {
+    setView('view-catalog');
+    renderCatalog();
+  }
+}
+
+function prefillUser(){
+  const tg = window.Telegram?.WebApp;
+  if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user){
+    const u = tg.initDataUnsafe.user;
+    if (u.username) $('#username').value = '@' + u.username;
+  }
+}
+
+async function loadCatalog(){
+  const r = await fetch('/api/catalog');
+  const data = await r.json();
+  catalog = data.items || [];
   renderCatalog();
 }
 
-window.addEventListener('DOMContentLoaded', async ()=>{
-  loadCart(); updCount();
+function hookTabs(){
+  document.querySelectorAll('.tab').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      currentCat = b.dataset.cat;
+      renderCatalog();
+    });
+  });
+  // активируем "Усі" по умолчанию
+  document.querySelector('.tab[data-cat="all"]').classList.add('active');
+}
+
+function bindHeader(){
   $('#btnCart').onclick = openCart;
-  $('#closeCart').onclick = closeCart;
-  $('#goCheckout').onclick = ()=>{ location.hash = "#/checkout"; closeCart(); };
-  $('#btnBuy').onclick = ()=>{ location.hash = "#/checkout"; };
+  $('#btnBuy').onclick  = ()=> go('#/checkout');
+  window.addEventListener('hashchange', route);
+}
 
-  // согласие
-  $('#gateAccept').onclick = ()=>{
-    const ok = $('#ch18').checked && $('#chrules').checked;
-    if(!ok){ alert('Підтвердіть обидва пункти'); return; }
-    localStorage.setItem(LS_CONSENT, '1');
-    $('#gate').classList.remove('show');
-  };
+function sendOrder(){
+  if (!Object.keys(cart).length){ alert('Порожня корзина'); return; }
+  const city = $('#city').value.trim();
+  const branch = $('#branch').value.trim();
+  const receiver = $('#receiver').value.trim();
+  const phone = $('#phone').value.trim();
+  const username = $('#username').value.trim();
+  const agree18 = $('#agree18').checked;
+  const acceptRules = $('#acceptRules').checked;
 
-  await fetchCatalog();
-  await router();
+  if (!username.startsWith('@')){
+    alert('Вкажіть нік у Telegram (з @)'); return;
+  }
+  const tg = window.Telegram?.WebApp;
+  if (!tg){
+    alert('Відкрий цю сторінку з Telegram'); return;
+  }
+  // собираем позиции
+  const items = [];
+  for (const [sku, qty] of Object.entries(cart)){
+    if (qty>0) items.push({sku, qty});
+  }
+  if (!items.length){ alert('Порожня корзина'); return; }
+
+  tg.ready();
+  tg.sendData(JSON.stringify({
+    type: "checkout",
+    items, city, branch, receiver, phone,
+    username, agree18, acceptRules
+  }));
+  tg.showAlert('✅ Замовлення надіслано боту');
+  // после алерта — чистим корзину и показываем success
+  cart = {}; saveCart();
+  go('#/success');
+}
+
+function setupCheckout(){
+  $('#btnSubmit').onclick = sendOrder;
+}
+
+function ensureConsent(){
+  const ok = localStorage.getItem('consent_ok');
+  if (ok==='1') return;
+  $('#consent').style.display = 'flex';
+}
+function confirmConsent(){
+  const a = $('#c18').checked, b = $('#cru').checked;
+  if (!a || !b){ alert('Підтвердіть 18+ і правила'); return; }
+  localStorage.setItem('consent_ok', '1');
+  $('#consent').style.display = 'none';
+}
+
+document.addEventListener('DOMContentLoaded', async ()=>{
+  ensureConsent();
+  loadCart(); renderCount();
+  await loadCatalog();
+  hookTabs();
+  bindHeader();
+  setupCheckout();
+  route();
 });
-window.addEventListener('hashchange', router);
 </script>
 </body>
 </html>
+
+
 
 
 
