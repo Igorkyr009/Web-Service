@@ -10,7 +10,7 @@
   }
   *{box-sizing:border-box}
   body{font-family:system-ui,Segoe UI,Roboto,sans-serif;margin:0 auto;max-width:980px;padding:16px;background:#fff;color:#111}
-  /* добавлено: чтобы при открытом модале товара страница не скроллилась */
+  /* не скроллим фон при открытых модалках */
   body.no-scroll{overflow:hidden}
 
   button{padding:12px 16px;border-radius:14px;border:1px solid var(--border);background:#fff;cursor:pointer;font-weight:700}
@@ -53,10 +53,10 @@
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:0;z-index:50}
   .modal.open{display:flex}
   .sheet{background:#fff;border-radius:18px;max-width:860px;width:100%;border:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:20px;max-height:92vh;overflow:auto;position:relative}
-  /* добавлено: безопасные отступы, чтобы контент не «наезжал» на изображение */
+  /* безопасные отступы, чтобы контент не «наезжал» на изображение */
   .sheet .media{display:flex;align-items:flex-start;justify-content:center;background:#f7f7f8;border-radius:12px;min-height:320px;padding-top:16px;padding-bottom:10px}
   .sheet .media img{display:block;width:min(520px,100%);max-height:70vh;object-fit:contain;border-radius:12px}
-  .sheet .content{display:flex;flex-direction:column;gap:10px;padding-top:12px} /* ↑ тут важный отступ */
+  .sheet .content{display:flex;flex-direction:column;gap:10px;padding-top:12px}
 
   .badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid var(--border);background:#fafafa;white-space:nowrap}
   .badge.preorder{border-color:#f59e0b;background:#fffbeb}
@@ -77,11 +77,14 @@
     .close-x{right:10px;top:10px}
   }
 
-  /* --- Возраст --- */
-  .age-modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:100}
-  .age-box{background:#fff;padding:20px;max-width:400px;border-radius:12px;text-align:center;border:1px solid var(--border);box-shadow:var(--shadow)}
-  .age-box h3{margin:0 0 12px}
-  .age-box button{margin-top:12px}
+  /* --- Возраст 18+ (ровная, центрированная модалка) --- */
+  .age-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:16px;z-index:100;background:rgba(0,0,0,.55)}
+  .age-modal.open{display:flex}
+  .age-box{width:100%;max-width:360px;background:#fff;border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:16px;text-align:center}
+  .age-box h3{margin:4px 0 10px}
+  .age-box p{margin:0 0 6px;color:#444;font-size:14px}
+  .age-row{display:flex;align-items:center;justify-content:center;gap:8px;margin:8px 0}
+  .age-row input{width:18px;height:18px}
 
   /* --- Drawer Checkout --- */
   .drawer{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;padding:0;z-index:60}
@@ -171,12 +174,14 @@
   </div>
 
   <!-- возраст 18+ — компактное окно с чекбоксом -->
-  <div id="ageModal" class="age-modal" style="display:none">
-    <div class="age-box">
+  <div id="ageModal" class="age-modal">
+    <div class="age-box" onclick="event.stopPropagation()">
       <h3>Підтвердження віку</h3>
-      <label style="display:flex;align-items:center;gap:8px;justify-content:center;cursor:pointer;margin:8px 0 0">
-        <input type="checkbox" id="ageCheck"> Мені вже є 18 років
-      </label>
+      <p>Вам вже виповнилось 18 років?</p>
+      <div class="age-row">
+        <input type="checkbox" id="ageCheck" aria-label="Мені 18+">
+        <label for="ageCheck">Мені вже є 18 років</label>
+      </div>
       <button id="btnAgeConfirm" class="primary" disabled>Продовжити</button>
     </div>
   </div>
@@ -231,7 +236,13 @@ const imageOr = (u) => u ? u : 'https://picsum.photos/600';
 function show(el){ el.classList.add('active'); }
 function hide(el){ el.classList.remove('active'); }
 function goHome(){ hide($('#screenShop')); show($('#screenHome')); }
+
+/* требуем подтверждение возраста перед действиями */
+function ageOk(){ return localStorage.getItem('age_ok')==='1'; }
+function requireAge(){ if(!ageOk()){ showAgeModal(); return false; } return true; }
+
 function goShop(cat){
+  if(!requireAge()) return;
   state.category = cat;
   document.querySelectorAll('#tabs button').forEach(b=>{
     b.classList.toggle('primary', b.getAttribute('data-cat')===cat);
@@ -310,6 +321,7 @@ function setBadge(item){
 }
 function updateTotal(){const it=state.current;if(!it)return;$("#pTotal").textContent=money(it.price*state.qty,it.currency||'UAH');}
 function openProduct(item){
+  if(!requireAge()) return;
   state.current=item;state.qty=1;
   $("#pImg").src=imageOr(item.image_url);
   $("#pTitle").textContent=item.title;
@@ -328,12 +340,14 @@ function addToCart(item,qty){
 
 /* ===== checkout ===== */
 function openCheckout(){
+  if(!requireAge()) return;
   if(state.cart.size===0){ alert('Кошик порожній'); return; }
   $("#fTG").value = tgUsername() ? "@"+tgUsername() : ($("#fTG").value||'');
   $("#checkout").classList.add('open');
 }
 function closeCheckout(){ $("#checkout").classList.remove('open'); }
 async function submitCheckout(){
+  if(!requireAge()) return;
   const err=$("#chkErr"); err.style.display='none'; err.textContent='';
   const city=$("#fCity").value.trim();
   const branch=$("#fBranch").value.trim();
@@ -365,13 +379,21 @@ async function submitCheckout(){
 }
 
 /* ===== age (18+) ===== */
-function showAgeModal(){ $("#ageModal").style.display='flex'; }
-function hideAgeModal(){ $("#ageModal").style.display='none'; }
+function showAgeModal(){
+  const m=$("#ageModal");
+  m.classList.add('open');
+  document.body.classList.add('no-scroll');
+}
+function hideAgeModal(){
+  const m=$("#ageModal");
+  m.classList.remove('open');
+  document.body.classList.remove('no-scroll');
+}
 
 /* ===== wiring ===== */
 window.addEventListener('DOMContentLoaded',()=>{
-  // возраст: показываем окно, если ещё не подтверждено
-  if(localStorage.getItem('age_ok')!=='1'){ showAgeModal(); }
+  // показать возрастную модалку, если ещё нет подтверждения
+  if(!ageOk()){ showAgeModal(); }
 
   // логика чекбокса 18+
   const ageCheck = document.getElementById('ageCheck');
@@ -388,7 +410,11 @@ window.addEventListener('DOMContentLoaded',()=>{
 
   // вкладки в шапке магазина
   document.querySelectorAll('#tabs button').forEach(b=>{
-    b.onclick=()=>{ state.category=b.getAttribute('data-cat'); document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('primary',x===b)); renderGrid(); };
+    b.onclick=()=>{ if(!requireAge()) return;
+      state.category=b.getAttribute('data-cat');
+      document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('primary',x===b));
+      renderGrid();
+    };
   });
 
   // back
@@ -396,7 +422,7 @@ window.addEventListener('DOMContentLoaded',()=>{
 
   // корзина
   loadCart(); rerenderCart();
-  $("#btnCart").onclick=()=>{ $("#cart").style.display='block'; rerenderCart(); };
+  $("#btnCart").onclick=()=>{ if(!requireAge()) return; $("#cart").style.display='block'; rerenderCart(); };
   $("#btnCartClose").onclick=()=>{ $("#cart").style.display='none'; };
 
   // checkout кнопки (и в хедере, и в корзине)
@@ -412,13 +438,12 @@ window.addEventListener('DOMContentLoaded',()=>{
   $("#btnAdd").onclick=()=>addToCart(state.current,state.qty);
   $("#btnClose").onclick=(e)=>{ e.stopPropagation(); closeProduct(); };
   $("#productModal").onclick=closeProduct;
-
-  // стартовый экран -> до выбора категории
-  // каталог подгружаем лениво при первом заходе в любую категорию
 });
 </script>
 </body>
 </html>
+
+
 
 
 
