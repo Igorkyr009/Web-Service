@@ -12,7 +12,8 @@
   .primary{background:var(--bg);color:var(--fg);border-color:var(--bg)}
   .muted{color:var(--muted);font-size:12px}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin-top:16px}
-  .card{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:#fff;cursor:pointer;display:flex;flex-direction:column}
+  .card{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:#fff;cursor:pointer;display:flex;flex-direction:column;transition:transform .06s ease}
+  .card:active{transform:scale(.99)}
   .card img{width:100%;aspect-ratio:1/1;object-fit:cover;background:#f5f5f5;display:block}
   .card .body{padding:10px}
   .title{font-weight:700;margin:0 0 6px}
@@ -20,6 +21,7 @@
   .price{font-weight:700}
   .tabs{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
 
+  /* корзина */
   .cart{position:fixed;right:16px;bottom:16px;left:16px;max-width:980px;margin-inline:auto;border:1px solid var(--border);background:#fff;border-radius:14px;padding:12px;box-shadow:0 10px 30px rgba(0,0,0,.08);display:none;z-index:40}
   .cart h4{margin:0 0 10px}
   .cart-item{display:grid;grid-template-columns:56px 1fr auto auto;gap:10px;align-items:center;padding:8px 0;border-top:1px dashed #eee}
@@ -32,9 +34,9 @@
   /* модал товара */
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:0;z-index:50}
   .modal.open{display:flex}
-  .sheet{background:#fff;border-radius:18px;max-width:860px;width:100%;border:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:20px;max-height:92vh;overflow:auto}
-  .sheet .media{display:flex;align-items:center;justify-content:center;background:#f7f7f8;border-radius:12px;min-height:320px}
-  .sheet .media img{width:min(520px,100%);max-height:70vh;object-fit:contain;border-radius:12px} /* << не режем */
+  .sheet{background:#fff;border-radius:18px;max-width:860px;width:100%;border:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:20px;max-height:92vh;overflow:auto;position:relative}
+  .sheet .media{display:flex;align-items:flex-start;justify-content:center;background:#f7f7f8;border-radius:12px;min-height:320px;padding-top:16px} /* верхний отступ для картинки */
+  .sheet .media img{width:min(520px,100%);max-height:70vh;object-fit:contain;border-radius:12px}
   .sheet .content{display:flex;flex-direction:column;gap:10px}
   .badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid var(--border);background:#fafafa}
   .badge.preorder{border-color:#f59e0b;background:#fffbeb}
@@ -44,6 +46,7 @@
   .sheet .actions{position:sticky;bottom:-1px;display:flex;gap:10px;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);background:#fff}
   .total{font-weight:800}
   .close-x{position:absolute;right:14px;top:10px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:6px 10px;font-weight:700;z-index:10}
+
   @media (max-width: 860px){
     body{padding:10px}
     .sheet{border-radius:0;max-width:none;width:100%;height:100vh;max-height:none;grid-template-columns:1fr;gap:12px;padding:14px}
@@ -58,8 +61,7 @@
   .drawer.open{display:flex}
   .panel{background:#fff;border-radius:18px 18px 0 0;max-width:860px;width:100%;border:1px solid var(--border);padding:16px}
   .g{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
-  input{padding:10px;border:1px solid var(--border);border-radius:10px}
+  input{padding:10px;border:1px solid var(--border);border-radius:10px;width:100%}
   label{font-size:12px;color:#333}
   .error{color:var(--danger);font-size:12px}
 </style>
@@ -79,7 +81,7 @@
 
   <div id="grid" class="grid"></div>
 
-  <!-- cart -->
+  <!-- корзина -->
   <div id="cart" class="cart" aria-live="polite">
     <h4>Кошик</h4>
     <div id="cartList"></div>
@@ -92,7 +94,7 @@
     </div>
   </div>
 
-  <!-- product modal -->
+  <!-- модал товара -->
   <div id="productModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="pTitle">
     <button class="close-x" id="btnClose">✕</button>
     <div class="sheet" onclick="event.stopPropagation()">
@@ -126,7 +128,7 @@
       <div class="g">
         <div>
           <label>Місто</label>
-          <input id="fCity" placeholder="Київ">
+          <input id="fCity" placeholder="Київ" autocomplete="shipping locality">
         </div>
         <div>
           <label>Відділення Нової пошти</label>
@@ -136,26 +138,19 @@
       <div class="g">
         <div>
           <label>ПІБ отримувача</label>
-          <input id="fRecv" placeholder="Прізвище Імʼя По батькові">
+          <input id="fRecv" placeholder="Прізвище Імʼя По батькові" autocomplete="name">
         </div>
         <div>
           <label>Телефон</label>
-          <input id="fPhone" placeholder="+380..." inputmode="tel">
+          <input id="fPhone" placeholder="+380..." inputmode="tel" autocomplete="tel">
         </div>
       </div>
-      <div class="g3">
+      <div class="g">
         <div>
           <label>Telegram username</label>
-          <input id="fTG" placeholder="@username">
+          <input id="fTG" placeholder="@username" autocomplete="off">
         </div>
-        <div>
-          <label>Імʼя</label>
-          <input id="fFirst" placeholder="Імʼя">
-        </div>
-        <div>
-          <label>Прізвище</label>
-          <input id="fLast" placeholder="Прізвище">
-        </div>
+        <div></div>
       </div>
       <div id="chkErr" class="error" style="display:none;margin-top:6px"></div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
@@ -172,6 +167,7 @@ const money = (v,c='UAH') => `${nf.format(Number(v||0))} ${c}`;
 const state = { items:[], cart:new Map(), current:null, qty:1, category:'devices' };
 const imageOr = (u) => u ? u : 'https://picsum.photos/600';
 
+/* сохранение корзины */
 function saveCart(){ try{
   const plain = [...state.cart.entries()].map(([k,v])=>[k,{item:v.item,qty:v.qty}]);
   localStorage.setItem('cart', JSON.stringify(plain));
@@ -181,7 +177,7 @@ function loadCart(){ try{
   state.cart = new Map(plain);
 }catch(e){ state.cart = new Map(); } }
 
-/* grid */
+/* список товаров */
 function renderGrid(){
   const g = $("#grid"); g.innerHTML = "";
   state.items.filter(x=>x.is_active && (x.category||'devices')===state.category).forEach(item=>{
@@ -202,7 +198,7 @@ function renderGrid(){
   });
 }
 
-/* cart */
+/* корзина */
 function rerenderCart(){
   $("#cartCount").textContent = [...state.cart.values()].reduce((s,v)=>s+v.qty,0);
   const list = $("#cartList"); list.innerHTML = "";
@@ -229,7 +225,7 @@ function rerenderCart(){
   $("#cartTotal").textContent = money(total, cur);
 }
 
-/* product modal */
+/* карточка товара */
 function setBadge(item){
   const b = $("#pBadge"); b.className='badge';
   if ((item.stock_status||'in_stock')==='preorder'){ b.classList.add('preorder'); b.textContent='Попереднє замовлення'; }
@@ -253,7 +249,7 @@ function addToCart(item, qty){
   saveCart(); rerenderCart(); closeProduct(); $("#cart").style.display='block';
 }
 
-/* data + checkout */
+/* загрузка каталога + checkout */
 async function loadCatalog(){
   try{
     const r = await fetch('/api/catalog'); const data = await r.json();
@@ -264,7 +260,6 @@ function isTG(){ try{ return !!(window.Telegram && Telegram.WebApp); }catch(e){ 
 function tgUsername(){ try{ return Telegram.WebApp?.initDataUnsafe?.user?.username || ''; }catch(e){ return ''; } }
 
 function openCheckout(){
-  // префилд из Telegram если есть
   $("#fTG").value = tgUsername() ? "@"+tgUsername() : ($("#fTG").value||'');
   $("#checkout").classList.add('open');
 }
@@ -277,8 +272,6 @@ async function submitCheckout(){
   const recv   = $("#fRecv").value.trim();
   const phone  = $("#fPhone").value.trim();
   const tg     = ($("#fTG").value||'').trim();
-  const first  = $("#fFirst").value.trim();
-  const last   = $("#fLast").value.trim();
 
   if (!city || !branch || !recv || !phone){
     err.textContent = "Заповніть місто, відділення, ПІБ та телефон.";
@@ -295,13 +288,10 @@ async function submitCheckout(){
     alert('Замовлення прийнято! Ми зв’яжемося для підтвердження.');
     Telegram.WebApp.close();
   }else{
-    // браузерный режим — отправим прямо на бек
     const r = await fetch('/api/checkout', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({items, city, branch, receiver:recv, phone,
-                            tg_username: tg.replace(/^@/,''),
-                            first_name:first, last_name:last})
+      body: JSON.stringify({items, city, branch, receiver:recv, phone, tg_username: tg.replace(/^@/, '')})
     });
     if (!r.ok){
       err.textContent = "Не вдалося оформити. Спробуйте ще раз."; err.style.display='block'; return;
@@ -312,7 +302,7 @@ async function submitCheckout(){
   closeCheckout();
 }
 
-/* wiring */
+/* события */
 $("#btnCart").onclick = ()=>{ $("#cart").style.display='block'; rerenderCart(); };
 $("#btnCartClose").onclick = ()=>{ $("#cart").style.display='none'; };
 $("#btnCartCheckout").onclick = openCheckout;
@@ -338,6 +328,8 @@ window.addEventListener('DOMContentLoaded', ()=>{ loadCart(); rerenderCart(); lo
 </script>
 </body>
 </html>
+
+
 
 
 
