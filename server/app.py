@@ -349,6 +349,13 @@ async def on_webapp_data(m: Message):
         f"Отримувач: {receiver}\nТелефон: {phone}"
     )
     await notify_admin(admin_msg)
+async def api_test_notify(request):
+    # GET /api/test-notify?text=hello  (нужен X-Admin-Secret, если он задан)
+    if not check_admin_secret(request):
+        return web.Response(status=401, text="unauthorized")
+    text = request.query.get("text", "ping")
+    await notify_admin(f"TEST: {text}")
+    return web.json_response({"ok": True})
 
 # -------------------- APP RUN --------------------
 async def aiohttp_app():
