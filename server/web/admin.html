@@ -1,307 +1,191 @@
-<!doctype html>
-<html lang="uk">
+<!doctype html><html lang="uk">
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Адмінка</title>
 <style>
   *,*::before,*::after{box-sizing:border-box}
-  :root{
-    --bg:#fafafa; --fg:#0f172a; --muted:#64748b; --line:#e5e7eb; --brand:#0ea5e9;
-    --radius:12px; --maxw:980px; --safe-top: env(safe-area-inset-top, 0px);
-  }
-  html,body{height:100%}
-  body{
-    margin:0 auto; max-width:var(--maxw); background:var(--bg); color:var(--fg);
-    font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;
-    padding:calc(12px + var(--safe-top)) 12px 96px; /* низ под фикс-бар кнопки */
-  }
-  h1,h2,h3{margin:0 0 12px}
-  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 12px}
-  .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px}
-  button{padding:10px 14px;border-radius:var(--radius);border:1px solid var(--brand);background:var(--brand);color:#fff;cursor:pointer}
-  .ghost{background:#fff;color:var(--brand)}
-  .muted{color:var(--muted)}
-  input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:var(--radius);background:#fff}
-  label{display:block;font-weight:600;margin-bottom:6px}
-  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  .form-col{display:grid;gap:12px}
-  .two-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .row{display:grid;grid-template-columns:180px 1fr;gap:12px;align-items:center}
-  .preview{width:200px;height:200px;border-radius:12px;border:1px solid var(--line);object-fit:cover;background:#f3f4f6}
-  .error{margin:12px 0;padding:10px;border:1px solid #fecaca;background:#fff1f2;color:#7f1d1d;border-radius:12px}
-  .ok{margin:12px 0;padding:10px;border:1px solid #bbf7d0;background:#f0fdf4;color:#14532d;border-radius:12px}
-  .fixedbar{
-    position:fixed; left:0; right:0; bottom:0; padding:12px;
-    background:rgba(250,250,250,.96); border-top:1px solid var(--line);
-    display:flex; justify-content:center; z-index:99;
-  }
-  .fixedbar > div{width:min(980px,100%); display:flex; justify-content:flex-end; gap:8px}
-  @media (max-width:760px){ .form-grid{grid-template-columns:1fr} .row{grid-template-columns:1fr} }
+  body{font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;margin:0 auto;max-width:1000px;padding:16px;background:#fafafa;color:#0f172a}
+  h2,h3{margin:0 0 10px}
+  .wrap{display:grid;grid-template-columns:360px 1fr;gap:16px}
+  @media (max-width:980px){ .wrap{grid-template-columns:1fr} }
+  input,textarea,select{width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:12px;background:#fff}
+  button{padding:10px 12px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;cursor:pointer}
+  .primary{background:#0ea5e9;border-color:#0ea5e9;color:#fff}
+  .muted{color:#64748b}
+  .card{border:1px solid #e5e7eb;border-radius:14px;background:#fff;padding:12px}
+  .list{display:grid;gap:8px;max-height:65vh;overflow:auto}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .item{padding:8px;border:1px solid #e5e7eb;border-radius:10px;cursor:pointer}
+  .item:hover{background:#f8fafc}
+  .preview{width:200px;aspect-ratio:1/1;object-fit:cover;border-radius:10px;background:#f3f4f6;border:1px solid #e5e7eb}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .full{grid-column:1/-1}
 </style>
 <body>
   <h2>Адмінка</h2>
-
-  <!-- Панель: ключ, поиск, навигация -->
-  <div class="toolbar">
-    <input id="adminKey" placeholder="🔒 Admin Secret" style="flex:1;border-color:#e5e7eb">
-    <button id="saveKey" class="ghost">Застосувати ключ</button>
-    <button id="btnCreate" class="ghost">+ Створити товар</button>
-    <input id="search" placeholder="Пошук по SKU/назві" style="flex:1;border-color:#e5e7eb">
-    <button id="btnReload" class="ghost">Оновити</button>
-    <a href="/index.html#%2Fcatalog" target="_blank"
-       class="ghost" style="text-decoration:none;padding:10px 14px;border:1px solid #e5e7eb;border-radius:12px">→ Вітрина</a>
+  <div class="row" style="margin-bottom:10px">
+    <div style="flex:1">
+      <input id="admkey" placeholder="Admin Secret (X-Admin-Secret)">
+    </div>
+    <button id="saveKey">Зберегти ключ</button>
   </div>
 
-  <div id="msg"></div>
-
-  <div class="card">
-    <!-- выбор товара -->
-    <div class="row">
-      <div><label for="sku">Товар (SKU)</label></div>
-      <select id="sku"></select>
+  <div class="wrap">
+    <div class="card">
+      <div class="row" style="gap:8px;margin-bottom:8px">
+        <input id="q" placeholder="Пошук за SKU/назвою">
+        <button id="find">Знайти</button>
+        <button id="new">Новий</button>
+      </div>
+      <div id="list" class="list"></div>
     </div>
 
-    <div class="form-grid" style="margin-top:8px">
-      <div class="form-col">
+    <div class="card">
+      <h3>Товар</h3>
+      <div class="grid">
+        <div><label class="muted">SKU<input id="sku" placeholder="унікальний ключ"></label></div>
+        <div><label class="muted">Активний
+          <select id="is_active"><option value="1">Так</option><option value="0">Ні</option></select>
+        </label></div>
+
+        <div class="full"><label class="muted">Назва<input id="title" placeholder="Назва"></label></div>
+        <div class="full"><label class="muted">Опис<textarea id="description" rows="4" placeholder="Короткий опис"></textarea></label></div>
+
+        <div><label class="muted">Ціна<input id="price" type="number" min="0" placeholder="0"></label></div>
+        <div><label class="muted">Валюта<input id="currency" value="UAH"></label></div>
+
+        <div><label class="muted">Категорія
+          <select id="category">
+            <option value="">—</option>
+            <option value="devices">Пристрої</option>
+            <option value="liquids">Рідини</option>
+            <option value="cartridges">Картриджі</option>
+          </select>
+        </label></div>
+
+        <div><label class="muted">Наявність
+          <select id="availability">
+            <option value="in_stock">В наявності</option>
+            <option value="preorder">Передзамовлення</option>
+          </select>
+        </label></div>
+
+        <div class="full">
+          <label class="muted">Зображення (URL)
+            <input id="image_url" placeholder="/uploads/....jpg або https://...">
+          </label>
+        </div>
+
         <div>
-          <label for="title">Назва</label>
-          <input id="title" placeholder="Напр.: Девайс X200">
+          <img id="preview" class="preview" src="https://via.placeholder.com/800?text=No+Image" alt="">
         </div>
         <div>
-          <label for="description">Опис</label>
-          <textarea id="description" rows="4" placeholder="Короткий опис товару"></textarea>
+          <label class="muted">Завантажити зображення (обрізає 800×800)
+            <input id="file" type="file" accept="image/*">
+          </label>
+          <div class="muted" style="margin-top:6px">Після завантаження поле URL заповниться автоматично</div>
         </div>
-        <div class="two-cols">
-          <div>
-            <label for="price">Ціна (UAH)</label>
-            <input id="price" type="number" min="0" step="1" placeholder="0">
-          </div>
-          <div>
-            <label for="category">Категорія</label>
-            <input id="category" placeholder="devises / liquids / cartridges">
-          </div>
-        </div>
-        <div class="two-cols">
-          <div>
-            <label for="availability">Статус</label>
-            <select id="availability">
-              <option value="in_stock">В наявності</option>
-              <option value="preorder">Предзамовлення</option>
-            </select>
-          </div>
-          <div>
-            <label for="is_active">Активний</label>
-            <select id="is_active">
-              <option value="1">Так</option>
-              <option value="0">Ні</option>
-            </select>
-          </div>
+
+        <div class="full" style="display:flex;gap:8px;justify-content:flex-end">
+          <button id="save" class="primary">Зберегти</button>
         </div>
       </div>
-
-      <div class="form-col">
-        <div>
-          <label>Зображення (з галереї)</label>
-          <img id="preview" class="preview" alt="">
-        </div>
-        <div>
-          <input id="file" type="file" accept="image/*">
-          <div class="muted">Файл обрізається до квадрату 800×800 (JPEG) на сервері.</div>
-        </div>
-        <div>
-          <label for="image_url">image_url</label>
-          <input id="image_url" readonly>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- фикс-бар с кнопкой Сохранить -->
-  <div class="fixedbar">
-    <div>
-      <button id="save" style="min-width:160px">Зберегти</button>
     </div>
   </div>
 
 <script>
-/* ===== helpers ===== */
-const $ = s => document.querySelector(s);
-const S = id => document.getElementById(id);
-const LS_KEY = 'tgshop.admin.key';
-let LIST = [];
-
-function setMsg(html, ok=false){
-  const box = $('#msg'); if(!html){ box.innerHTML=''; return; }
-  box.innerHTML = `<div class="${ok?'ok':'error'}">${html}</div>`;
-  setTimeout(()=>{ box.innerHTML=''; }, 3500);
-}
-function esc(s){ return String(s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[m])); }
-
-function getKey(){ return (S('adminKey').value || '').trim(); }
-function saveKeyLocal(){ localStorage.setItem(LS_KEY, getKey()); }
-function loadKeyLocal(){ const v = localStorage.getItem(LS_KEY)||''; S('adminKey').value = v; return v; }
-
-function authHeaders(){
-  const k = getKey();
-  const h = {};
-  if(k) h['X-Admin-Secret'] = k;
-  return h;
-}
-function withKeyQuery(url){
-  const k = getKey();
-  if(!k) return url;
-  return url + (url.includes('?') ? '&' : '?') + 'key=' + encodeURIComponent(k);
-}
-function sortProducts(a){
-  return a.slice().sort((x,y)=> (x.category||'').localeCompare(y.category||'') || (x.title||'').localeCompare(y.title||''));
-}
-function fillSelect(){
-  const sel = S('sku');
-  sel.innerHTML = LIST.map(p=>`<option value="${p.sku}">${p.sku} — ${esc(p.title||'')}</option>`).join('');
-}
-
-/* ===== API ===== */
-async function apiGet(url){
-  const r = await fetch(withKeyQuery(url), {headers: authHeaders()});
-  if(!r.ok){
-    const t = await r.text();
-    throw new Error(`GET ${url} → ${r.status}: ${t}`);
-  }
-  return r.json();
-}
-async function apiPut(url, body){
-  const r = await fetch(withKeyQuery(url), {method:'PUT', headers:{'Content-Type':'application/json', ...authHeaders()}, body: JSON.stringify(body)});
-  if(!r.ok){
-    const t = await r.text();
-    throw new Error(`PUT ${url} → ${r.status}: ${t}`);
-  }
-  return r.json();
-}
-async function apiUpload(file){
-  const fd = new FormData(); fd.append('file', file, file.name);
-  const r = await fetch(withKeyQuery('/api/upload'), {method:'POST', headers:{...authHeaders()}, body: fd});
-  if(!r.ok){
-    const t = await r.text();
-    throw new Error(`UPLOAD → ${r.status}: ${t}`);
-  }
-  return r.json();
-}
-
-/* ===== data flow ===== */
-async function loadProducts(q=""){
-  try{
-    setMsg('');
-    const j = await apiGet('/api/products'+(q?`?q=${encodeURIComponent(q)}`:''));
-    LIST = sortProducts(j.items||[]);
-    if(!LIST.length){
-      setMsg('Список порожній. Перевір ключ або додай товар.', true);
-    }
-    fillSelect();
-    if(LIST.length) fillForm(LIST[0]);
-  }catch(e){
-    setMsg('Не вдалося завантажити товари. ' + esc(e.message));
-    LIST = []; fillSelect();
-  }
-}
-function fillForm(p){
-  if(!p){ // если списка нет — очистим поля
-    S('title').value = '';
-    S('description').value = '';
-    S('price').value = 0;
-    S('category').value = '';
-    S('availability').value = 'in_stock';
-    S('is_active').value = 0;
-    S('image_url').value = '';
-    S('preview').src = 'https://via.placeholder.com/800?text=No+Image';
-    return;
-  }
-  S('sku').value = p.sku;
-  S('title').value = p.title || '';
-  S('description').value = p.description || '';
-  S('price').value = p.price ?? 0;
-  S('category').value = p.category || '';
-  S('availability').value = p.availability || 'in_stock';
-  S('is_active').value = p.is_active ? 1 : 0;
-  S('image_url').value = p.image_url || '';
-  S('preview').src = p.image_url || 'https://via.placeholder.com/800?text=No+Image';
-}
-
-/* ===== events ===== */
-S('saveKey').onclick = async ()=>{
-  saveKeyLocal();
-  await loadProducts($('#search').value.trim());
-  setMsg('Ключ застосовано', true);
+const $=s=>document.querySelector(s);
+const API = {
+  products:(q)=>'/api/products'+(q?`?q=${encodeURIComponent(q)}`:''),
+  put:(sku)=>`/api/products/${encodeURIComponent(sku)}`,
+  upload:'/api/upload'
 };
 
-S('sku').addEventListener('change', ()=>{
-  const sku = S('sku').value;
-  const p = LIST.find(x=>x.sku===sku);
-  fillForm(p);
-});
+function key(){ return localStorage.getItem('adm.key')||''; }
+function headers(){ const k=key(); return k?{'X-Admin-Secret':k}:{ }; }
 
-S('file').addEventListener('change', async (e)=>{
-  const f = e.target.files[0]; if(!f) return;
-  try{
-    const res = await apiUpload(f);
-    if(!res.ok) throw new Error(res.error||'upload failed');
-    S('image_url').value = res.url;
-    S('preview').src = res.url;
-    setMsg('Зображення завантажено', true);
-  }catch(err){
-    setMsg('Помилка завантаження: '+esc(err.message));
-  }finally{
-    e.target.value = '';
+async function list(q){
+  const r = await fetch(API.products(q), {headers:headers()});
+  if(!r.ok){ alert('Помилка авторизації (Admin Secret)'); return; }
+  const j = await r.json();
+  const items = j.items||[];
+  $('#list').innerHTML = items.map(p=>`
+    <div class="item" data-sku="${p.sku}">
+      <div class="row">
+        <b>${p.title}</b>
+        <span class="muted">${p.sku}</span>
+      </div>
+      <div class="muted">${p.category||'—'} · ${p.availability==='preorder'?'предзамовлення':'в наявності'} · ${p.is_active?'активний':'—'}</div>
+    </div>
+  `).join('');
+  [...document.querySelectorAll('.item')].forEach(el=>{
+    el.onclick = ()=>{
+      const sku = el.dataset.sku;
+      const p = items.find(x=>x.sku===sku);
+      fill(p);
+    };
+  });
+}
+
+function fill(p){
+  $('#sku').value = p?.sku || '';
+  $('#title').value = p?.title || '';
+  $('#description').value = p?.description || '';
+  $('#price').value = p?.price || 0;
+  $('#currency').value = p?.currency || 'UAH';
+  $('#image_url').value = p?.image_url || '';
+  $('#is_active').value = (p?.is_active?1:0);
+  $('#category').value = p?.category || '';
+  $('#availability').value = p?.availability || 'in_stock';
+  $('#preview').src = p?.image_url || 'https://via.placeholder.com/800?text=No+Image';
+  $('#file').value = '';
+}
+
+async function save(){
+  const sku=$('#sku').value.trim();
+  if(!sku){ alert('Вкажіть SKU'); return; }
+
+  // если выбран файл — сначала загрузим
+  const file = $('#file').files[0];
+  let image_url = $('#image_url').value.trim();
+  if(file){
+    const fd = new FormData();
+    fd.append('file', file);
+    const r = await fetch(API.upload, {method:'POST', headers:headers(), body:fd});
+    if(!r.ok){ alert('Не вдалося завантажити зображення'); return; }
+    const j = await r.json();
+    if(j.ok && j.url){ image_url = j.url; $('#image_url').value = image_url; $('#preview').src = image_url; }
   }
-});
 
-S('save').addEventListener('click', async ()=>{
-  const sku = S('sku').value.trim();
-  if(!sku){ setMsg('SKU порожній'); return; }
   const body = {
-    title: S('title').value.trim(),
-    description: S('description').value.trim(),
-    price: parseInt(S('price').value||'0',10),
-    category: S('category').value.trim(),
-    availability: S('availability').value,
-    is_active: parseInt(S('is_active').value,10),
-    image_url: S('image_url').value.trim(),
-    currency: "UAH"
+    title: $('#title').value.trim(),
+    description: $('#description').value.trim(),
+    price: parseInt($('#price').value||0,10),
+    currency: $('#currency').value.trim()||'UAH',
+    image_url,
+    is_active: parseInt($('#is_active').value||0,10),
+    category: $('#category').value.trim(),
+    availability: $('#availability').value.trim()||'in_stock'
   };
-  try{
-    const j = await apiPut(`/api/products/${encodeURIComponent(sku)}`, body);
-    if(!j.ok) throw new Error(j.error||'save failed');
-    // локально обновим, чтобы селект/форма не «прыгали»
-    const i = LIST.findIndex(x=>x.sku===sku);
-    if(i>=0) LIST[i] = {...LIST[i], ...body}; else LIST.push({sku, ...body});
-    LIST = sortProducts(LIST);
-    fillSelect(); S('sku').value = sku;
-    setMsg('Збережено', true);
-  }catch(e){
-    setMsg('Не збережено: '+esc(e.message));
-  }
+
+  const r = await fetch(API.put(sku), {method:'PUT', headers:{'Content-Type':'application/json', ...headers()}, body:JSON.stringify(body)});
+  if(!r.ok){ alert('Помилка збереження'); return; }
+  alert('Збережено');
+  await list($('#q').value.trim());
+}
+
+document.addEventListener('DOMContentLoaded', async ()=>{
+  const k = localStorage.getItem('adm.key')||'';
+  $('#admkey').value = k;
+
+  $('#saveKey').onclick = ()=>{ localStorage.setItem('adm.key', $('#admkey').value.trim()); alert('Ключ збережено'); };
+  $('#find').onclick = ()=> list($('#q').value.trim());
+  $('#new').onclick = ()=> fill({sku:'',title:'',description:'',price:0,currency:'UAH',image_url:'',is_active:true,category:'',availability:'in_stock'});
+  $('#image_url').oninput = ()=>{ $('#preview').src = $('#image_url').value.trim() || 'https://via.placeholder.com/800?text=No+Image'; }
+  $('#save').onclick = save;
+
+  await list('');
 });
-
-$('#btnReload').onclick = ()=> loadProducts($('#search').value.trim());
-$('#search').addEventListener('keydown', e=>{ if(e.key==='Enter') $('#btnReload').click(); });
-
-$('#btnCreate').onclick = async ()=>{
-  const sku = prompt('SKU нового товару:'); if(!sku) return;
-  try{
-    const draft = {title: sku, price: 0, currency: "UAH", is_active: 0, availability: "in_stock"};
-    const j = await apiPut(`/api/products/${encodeURIComponent(sku)}`, draft);
-    if(!j.ok) throw new Error(j.error||'create failed');
-    await loadProducts($('#search').value.trim());
-    S('sku').value = sku;
-    const p = LIST.find(x=>x.sku===sku); fillForm(p);
-    setMsg('Створено чернетку', true);
-  }catch(e){
-    setMsg('Не створено: '+esc(e.message));
-  }
-};
-
-/* старт */
-loadKeyLocal();
-loadProducts();
 </script>
 </body>
 </html>
@@ -311,6 +195,7 @@ loadProducts();
 
 
    
+
 
 
 
