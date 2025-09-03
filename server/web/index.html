@@ -4,10 +4,16 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Магазин</title>
 <style>
-  :root{
-    --bg:#0ea5e9; --fg:#fff; --muted:#667085; --border:#e5e7eb; --danger:#ef4444;
-    --card:#ffffff; --shadow:0 10px 30px rgba(0,0,0,.08)
+  :root {
+  --bg:#1a1a4b;        /* тёмно-синий */
+  --fg:#ffffff;        /* белый текст */
+  --muted:#c3b8e0;     /* мягкий приглушённый сиреневый */
+  --border:#3c3c6e;    /* границы в тон фону */
+  --danger:#ff5c5c;    /* красный для ошибок и предупреждений */
+  --card:#2b2b5e;      /* фон карточек - чуть светлее основного фона */
+  --shadow:0 10px 30px rgba(0,0,0,.3); /* более тёмная тень */
   }
+
   *{box-sizing:border-box}
   body{font-family:system-ui,Segoe UI,Roboto,sans-serif;margin:0 auto;max-width:980px;padding:16px;background:#fff;color:#111}
   body.no-scroll{overflow:hidden}
@@ -456,6 +462,7 @@ window.addEventListener('DOMContentLoaded',()=>{
 </script>
 </body>
 </html>
+
 
 
 
