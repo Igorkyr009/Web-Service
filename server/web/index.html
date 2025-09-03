@@ -126,22 +126,7 @@ color:#fff;;cursor:pointer;display:flex;flex-direction:column;transition:transfo
   .sheet .media img{ max-height:50vh; }
 }
 
-  .sheet .media{
-    display:flex;align-items:flex-start;justify-content:center;background:#f7f7f8;border-radius:12px;
-    min-height:320px;padding-top:16px;padding-bottom:10px
-  }
-  .sheet .media img{
-    display:block;width:min(520px,100%);max-height:70vh;object-fit:contain;border-radius:12px
-  }
-  .sheet .content{
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-    padding-top:24px; /* увеличенный безопасный отступ */
-    position: relative;
-    z-index: 2; /* гарантирует, что текст будет поверх */
-    background: #fff; /* чтобы текст не смешивался с фоном картинки */
-  }
+  
 
   .badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid var(--border);background:#fafafa;white-space:nowrap}
   .badge.preorder{border-color:#f59e0b;background:#fffbeb}
@@ -239,6 +224,42 @@ color:#fff;;cursor:pointer;display:flex;flex-direction:column;transition:transfo
   object-fit: contain !important; /* вписываем картинку без обрезки */
   margin: 0 auto !important;
   display: block !important;
+}
+/* ==== FINAL OVERRIDES: dark modal + image fit ==== */
+.modal .sheet{
+  background:#1a1a4b !important;
+  border-color:#3c3c6e !important;
+}
+.modal .sheet .content{
+  background:#1a1a4b !important;
+  color:#fff !important;
+}
+
+/* Центруем медиа и убираем внутренние отступы, чтобы не "резало" */
+.modal .sheet .media{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  background:#2b2b5e !important;
+  padding:0 !important;
+}
+
+/* Главное: картинка вписывается и не обрезается */
+#pImg,
+.modal .sheet .media img{
+  display:block !important;
+  width:100% !important;          /* перебивает width:min(520px,100%) */
+  height:auto !important;
+  max-height:80vh !important;     /* влезает по высоте экрана */
+  object-fit:contain !important;  /* без обрезки */
+  margin:0 auto !important;
+  border-radius:12px !important;  /* можно убрать, если не надо скругление */
+}
+
+/* На мобиле можно чуть ниже ограничить высоту */
+@media (max-width:860px){
+  #pImg,
+  .modal .sheet .media img{ max-height:60vh !important; }
 }
 
 </style>
@@ -591,6 +612,7 @@ window.addEventListener('DOMContentLoaded',()=>{
 </script>
 </body>
 </html>
+
 
 
 
