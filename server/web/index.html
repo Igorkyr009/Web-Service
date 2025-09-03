@@ -177,6 +177,59 @@ color:#fff;;cursor:pointer;display:flex;flex-direction:column;transition:transfo
   input{padding:12px;border:1px solid var(--border);border-radius:10px;width:100%}
   label{font-size:12px;color:#333}
   .error{color:var(--danger);font-size:12px}
+  /* ==== Force dark modal + safe image (override) ==== */
+.modal .sheet{
+  background:#1a1a4b !important;
+  border-color:#3c3c6e !important;
+}
+.modal .sheet .media{
+  background:#2b2b5e !important;
+  padding:0 !important;
+}
+.modal .sheet .media img{
+  display:block !important;
+  max-width:100% !important;
+  width:auto !important;
+  height:auto !important;
+  max-height:80vh !important;
+  object-fit:contain !important;  /* без обрезки */
+}
+.modal .sheet .content{
+  background:#1a1a4b !important;
+  color:#fff !important;
+}
+.modal .sheet .actions{
+  border-top:1px solid #3c3c6e !important;
+  background:#1a1a4b !important;
+}
+.modal .desc{ color:#e6e6f2 !important; }
+.modal .muted{ color:#c3b8e0 !important; }
+.modal #pTitle,
+.modal .price,
+.modal .total{ color:#fff !important; }
+.modal .badge{
+  border-color:#3c3c6e !important;
+  background:#2b2b5e !important;
+  color:#fff !important;
+}
+.modal .badge.preorder{
+  border-color:#f59e0b !important;
+  background:#4a3ba8 !important;
+}
+.modal .qtybar input{
+  background:#2b2b5e !important;
+  color:#fff !important;
+  border-color:#3c3c6e !important;
+}
+.modal .close-x{
+  background:#2b2b5e !important;
+  color:#fff !important;
+  border-color:#3c3c6e !important;
+}
+
+/* Немного темнее фон карточек везде */
+.card{ background:#2b2b5e !important; color:#fff !important; }
+
 </style>
 <body>
 
@@ -527,6 +580,7 @@ window.addEventListener('DOMContentLoaded',()=>{
 </script>
 </body>
 </html>
+
 
 
 
