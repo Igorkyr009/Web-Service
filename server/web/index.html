@@ -75,6 +75,57 @@ color:#fff;;cursor:pointer;display:flex;flex-direction:column;transition:transfo
     background:#fff;border-radius:18px;max-width:860px;width:100%;border:1px solid var(--border);
     display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:20px;max-height:92vh;overflow:auto;position:relative
   }
+  /* ==== Product Modal: dark theme + safe image fit ==== */
+.sheet{
+  background:#1a1a4b;            /* тёмный фон модалки */
+  border-color:#3c3c6e;
+}
+.sheet .media{
+  background:#2b2b5e;            
+  padding:0;                     
+}
+.sheet .media img{
+  display:block;
+  max-width:100%;
+  width:auto;                    
+  height:auto;
+  max-height:80vh;               
+  object-fit:contain;            
+}
+
+.sheet .content{
+  background:#1a1a4b;
+  color:#fff;
+}
+
+.desc{ color:#e6e6f2; }
+.muted{ color:#c3b8e0; }
+.price,.total,#pTitle{ color:#fff; }
+
+.badge{ border-color:#3c3c6e; background:#2b2b5e; color:#fff; }
+.badge.preorder{ border-color:#f59e0b; background:#4a3ba8; }
+
+.sheet .actions{
+  border-top:1px solid #3c3c6e;
+  background:#1a1a4b;
+}
+
+.qtybar input{
+  background:#2b2b5e;
+  color:#fff;
+  border-color:#3c3c6e;
+}
+.close-x{
+  background:#2b2b5e;
+  color:#fff;
+  border-color:#3c3c6e;
+}
+
+@media (max-width:860px){
+  .sheet .media{ min-height:auto; }
+  .sheet .media img{ max-height:50vh; }
+}
+
   .sheet .media{
     display:flex;align-items:flex-start;justify-content:center;background:#f7f7f8;border-radius:12px;
     min-height:320px;padding-top:16px;padding-bottom:10px
@@ -476,6 +527,7 @@ window.addEventListener('DOMContentLoaded',()=>{
 </script>
 </body>
 </html>
+
 
 
 
